@@ -1,4 +1,4 @@
-; Metal Fatigue Retrofit — Inno Setup script
+﻿; Metal Fatigue Retrofit — Inno Setup script
 ; Build with Inno Setup 6 (free): compile this file with the IDE or ISCC.exe.
 ; Produces Setup that installs the patcher, and whose UNINSTALLER offers to
 ; restore the original MFatigue.exe (from the .bak the patcher created).
@@ -25,6 +25,8 @@ OutputDir=Output
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+; GPL-3.0 must be conveyed with the program - show it during setup and install a copy.
+LicenseFile=..\LICENSE
 PrivilegesRequired=admin
 ArchitecturesInstallIn64BitMode=x64
 ; Pick the language from the user's Windows settings; only ask if there's no match.
@@ -76,6 +78,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 ; Build the patcher first: dotnet build -c Release
 Source: "..\patcher\bin\Release\net48\MetalFatigueRetrofitPatcher.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: ignoreversion
+Source: "..\LICENSE";   DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"

@@ -1,4 +1,6 @@
-﻿# Metal Fatigue Retrofit
+﻿![Metal Fatigue Retrofit](docs/social-preview.png)
+
+# Metal Fatigue Retrofit
 
 A distributable patcher that fixes two long-standing bugs in **Metal Fatigue** (Zono/Psygnosis, 2000; rights now at Nightdive/Atari):
 
