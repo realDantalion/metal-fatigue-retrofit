@@ -1,0 +1,44 @@
+# NEVER commit game binaries or patched output (copyright — distribute only the patcher)
+*.exe
+*.dll
+*.bak
+*.tbd
+*.avi
+MFatigue*
+
+# .NET build output
+bin/
+obj/
+*.user
+
+# Release / installer output
+dist/
+installer/Output/
+
+# Node
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local dumps / scratch
+*.dump
+exe_strings.txt
+tool-results/
+
+# High-res mascot source drops in the repo root (~1.8 MB each). The embedded copies
+# used by the build are patcher/logo*.png (256px, keyed to transparency); editable
+# masters live in research-notes/mascot-masters/. Keep these big root originals out of git.
+# Anchored to root so patcher/logo*.png still commits.
+/logo.png
+/logo_cheat.png
+/logo-head.png

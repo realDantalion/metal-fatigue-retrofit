@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>MetalFatigueRetrofitPatcher</AssemblyName>
+    <RootNamespace>MetalFatiguePatcher</RootNamespace>
+    <Product>Metal Fatigue Retrofit</Product>
+    <Version>0.1.0</Version>
+    <Authors>Dantalion</Authors>
+    <Company>Dantalion</Company>
+    <Copyright>Copyright (C) 2026 Dantalion (github.com/realDantalion) — GNU GPL v3</Copyright>
+    <Description>Community patch for Metal Fatigue (2000): lifts the memory-based unit limit and the crew-name limit.</Description>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Logo + language flags are embedded so the patcher stays a single self-contained .exe.
+         Wildcards: dropping in logo_cheat.png (alternate mascot for cheat mode) or another
+         flag_xx.png is enough — no project changes needed. -->
+    <EmbeddedResource Include="logo*.png" />
+    <EmbeddedResource Include="flag_*.png" />
+  </ItemGroup>
+
+  <!-- .NET Framework 4.8 is preinstalled on Win10/11 -> tiny, dependency-free exe. -->
+
+</Project>
