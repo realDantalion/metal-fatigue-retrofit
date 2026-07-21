@@ -55,6 +55,6 @@ jobs:
           # Create the release if it does not exist yet; otherwise just add the files.
           gh release view $tag *> $null
           if ($LASTEXITCODE -ne 0) {
-            gh release create $tag --title "Metal Fatigue Community Patch $tag" --generate-notes
+            gh release create $tag --title "Metal Fatigue Retrofit $tag" --generate-notes
           }
           gh release upload $tag (Get-ChildItem dist -File | ForEach-Object { $_.FullName }) --clobber
