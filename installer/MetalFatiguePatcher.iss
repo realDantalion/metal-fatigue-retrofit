@@ -7,7 +7,7 @@
 ; Version comes from build-release.ps1 via  ISCC /DMyAppVersion=<ver>  (single source of
 ; truth = the .csproj). This fallback only applies when compiling the .iss directly in the IDE.
 #ifndef MyAppVersion
-  #define MyAppVersion "0.1.0"
+  #define MyAppVersion "1.0.0"
 #endif
 #define MyAppPublisher "Metal Fatigue Community"
 #define MyAppExeName "MetalFatigueRetrofitPatcher.exe"

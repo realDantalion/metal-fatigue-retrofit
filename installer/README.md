@@ -16,7 +16,7 @@ So uninstalling can cleanly undo both the app **and** the game patch. (The patch
 2. Install **Inno Setup 6** (free — https://jrsoftware.org/isdl.php).
 3. Compile: open `MetalFatiguePatcher.iss` in the Inno IDE and press Build, or
    `"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" MetalFatiguePatcher.iss`.
-4. Output: `installer\Output\MetalFatigueRetrofitPatcher-Setup-0.1.0.exe`.
+4. Output: `installer\Output\MetalFatigueRetrofitPatcher-Setup-1.0.0.exe`.
 
 `scripts\build-release.ps1` does steps 1 + 3 automatically if Inno Setup is installed,
-and always produces the standalone `dist\MetalFatigueRetrofitPatcher-0.1.0.zip`.
+and always produces the standalone `dist\MetalFatigueRetrofitPatcher-1.0.0.zip`.
