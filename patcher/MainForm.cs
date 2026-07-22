@@ -238,7 +238,10 @@ namespace MetalFatiguePatcher
             _mascot = new PictureBox
             {
                 Image = _logo, SizeMode = PictureBoxSizeMode.Zoom,
-                Location = new Point(12, 10), Size = new Size(102, 102),
+                // Negative Y on purpose: both mascot PNGs carry ~11.7% transparent
+                // padding on top, so the box is lifted out of the panel by exactly that
+                // much. Only transparent pixels get clipped; the robot starts at y=4.
+                Location = new Point(12, -11), Size = new Size(132, 132),
                 BackColor = Color.Transparent, Cursor = Cursors.Hand
             };
             var pic = _mascot;
@@ -247,13 +250,13 @@ namespace MetalFatiguePatcher
             {
                 Font = new Font("Segoe UI", 15f, FontStyle.Bold),
                 ForeColor = Color.White, BackColor = Color.Transparent,
-                AutoSize = true, Location = new Point(114, 34)
+                AutoSize = true, Location = new Point(146, 34)
             };
             _bannerSub = new Label
             {
                 Font = new Font("Segoe UI", 8.5f),
                 ForeColor = Color.FromArgb(185, 200, 225), BackColor = Color.Transparent,
-                AutoSize = true, Location = new Point(116, 64)
+                AutoSize = true, Location = new Point(148, 64)
             };
 
             // language selector: clickable flags (auto-detected, user can override)
