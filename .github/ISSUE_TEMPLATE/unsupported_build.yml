@@ -27,6 +27,23 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: modified
+    attributes:
+      label: Has the game been modified in any way?
+      description: |
+        Fan translations are the most common reason the patcher stops recognising a copy —
+        several of them replace MFatigue.exe itself. Note that the flag selector in the
+        patcher only changes its own interface language; it has no effect on which build
+        of the game is supported.
+      options:
+        - No - clean install, never modified
+        - A fan translation / language mod is installed
+        - Other mods or patches are installed
+        - Not sure
+    validations:
+      required: true
+
   - type: input
     id: size
     attributes:
