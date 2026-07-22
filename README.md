@@ -99,7 +99,32 @@ The **GOG and Steam `MFatigue.exe` are byte-identical** (SHA256 `26d428f1…`, t
 - **Something is broken** — use *Bug report*, and paste the contents of the patcher's log box. That alone usually shows the cause.
 - **The patcher doesn't recognise your build** — use *Unsupported game version* and include the file size and SHA-256 of your `MFatigue.exe`. Only the Nightdive re-release is supported so far.
 
-Not bugs: the *"unknown publisher"* warning, and Steam's *Verify integrity of game files* putting the original EXE back (just run the patcher again).
+### Worth reporting
+
+- **The patcher stops recognising a Steam or GOG copy.** Usually means the game got an update and the executable changed — that affects everyone, so it's the most useful thing you can report.
+- **The game won't start, or crashes after patching**, and doesn't on the unpatched original.
+- **"Restore original" doesn't bring the game back.** Anything touching the backup matters most of all.
+- **A limit hits far earlier than your chosen version promises** — production stalling like vanilla although you picked *8× units*, for example.
+- **Combot production stops on *Maximum***, where crew names are supposed to be reused indefinitely.
+- **Multiplayer desyncs although every player ran the identical build.** This is the least-tested area of the patch.
+- **"Share vision with allies" is enabled but nothing changes** in a match with an ally.
+- **Wrong, garbled or missing text** in any of the 10 languages, or text clipped inside the window.
+- **The patcher itself crashes**, hangs, or shows an error you can't get past.
+
+### Things that are not bugs
+
+All of these are expected — please check the list before opening an issue:
+
+- **Windows warns about an "unknown publisher", or antivirus flags the patcher.** It isn't code-signed, and it writes into another program's file, which trips heuristics. [How to verify it instead](#is-this-safe).
+- **Steam's "Verify integrity of game files" undoes the patch.** Steam sees a modified EXE and re-downloads the original. Just run the patcher again.
+- **You still can't build more than ~50 combots.** On the *50 combots · 2× / 4× / 8× units* versions that cap is kept **on purpose** — it comes from the crew-name list. Only *Maximum* lifts it.
+- **Unit production still stops eventually.** The memory cap isn't removed, only moved far above the artificial 8 MB wall. It stays as a safety valve, so the game blocks gracefully instead of crashing.
+- **The framerate drops in huge battles.** That's the 2000-era engine. The patch removed the artificial limit; your hardware is the real one now.
+- **The patcher refuses your `MFatigue.exe`.** Deliberate — it only touches builds it can positively identify. Report that as an *unsupported version* instead.
+- **Multiplayer desyncs.** Every player must run the **exact same** patch version. Differently patched EXEs will desync.
+- **Your allies don't see what you see.** *Share vision with allies* only changes **your** view; each player has to enable it for themselves.
+- **The AI is brutally strong.** If you picked *Cheats for everyone*, the cheats apply to the AI too. That's what that variant does.
+- **The game won't start after you renamed the EXE.** Metal Fatigue refuses to launch under any name other than `MFatigue.exe`. That's the game, not the patch.
 
 ## License
 

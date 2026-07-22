@@ -2,6 +2,6 @@
 # that actually matter (patcher log, file hash) never turn up in free-form reports.
 blank_issues_enabled: false
 contact_links:
-  - name: Not sure if it's a bug?
-    url: https://github.com/realDantalion/metal-fatigue-retrofit#is-this-safe
-    about: The README covers the unknown-publisher warning, Steam file verification, and the multiplayer rule.
+  - name: Is this actually a bug?
+    url: https://github.com/realDantalion/metal-fatigue-retrofit#things-that-are-not-bugs
+    about: Expected behaviour that gets reported a lot - Steam file verification, the ~50 combot cap on the non-Maximum versions, multiplayer desyncs, the unknown-publisher warning.

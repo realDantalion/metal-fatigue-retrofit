@@ -9,6 +9,11 @@ body:
         Thanks for taking the time to report this. The more of the fields below you fill in,
         the faster this can be tracked down — the **patcher log** especially.
 
+        First, please skim
+        **[Things that are not bugs](https://github.com/realDantalion/metal-fatigue-retrofit#things-that-are-not-bugs)**.
+        It covers the ones that come up most: Steam's file verification undoing the patch, the
+        ~50 combot cap being intentional on the non-*Maximum* versions, and multiplayer desyncs.
+
   - type: checkboxes
     id: preflight
     attributes:
