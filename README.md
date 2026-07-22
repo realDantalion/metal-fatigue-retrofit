@@ -13,6 +13,7 @@ Two equivalent downloads — both do the exact same thing:
 
 - **Standalone (recommended)** — `MetalFatigueRetrofitPatcher.exe`. Just run it. Nothing is installed,
   nothing is left behind. Undo any time with the built-in **Restore original** button.
+  (The `.zip` on the release page holds that same exe together with the README and the licence.)
 - **Installer (optional)** — `…-Setup.exe`. A classic wizard that adds a Start-Menu entry and an
   Add/Remove-Programs uninstaller (which can also restore the original). Handy if you prefer that,
   but it patches your game exactly the same way.

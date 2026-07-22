@@ -1,6 +1,7 @@
 <#
   Builds the Metal Fatigue Retrofit release artifacts into dist\:
-    - Standalone:  MetalFatigueRetrofitPatcher.exe  (+ README.txt, LICENSE.txt) and a versioned .zip
+    - Standalone:  MetalFatigueRetrofitPatcher.exe, and a versioned .zip bundling it with
+                   README.txt + LICENSE.txt (the licence-complete single download)
     - Installer:   MetalFatigueRetrofitPatcher-Setup-<ver>.exe   (needs Inno Setup 6)
     - SHA256SUMS.txt covering everything above
 
@@ -37,16 +38,20 @@ $dist = Join-Path $repo "dist"
 if (Test-Path $dist) { Remove-Item $dist -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $dist | Out-Null
 
-# --- Standalone: loose exe (+ docs) and a bundled zip ---
+# --- Standalone: the loose exe, plus a zip that carries the licence with it ---
+# The zip is the GPL-complete download (program + LICENSE + README in one file); the loose exe
+# is just the frictionless path. The docs are staged in a temp folder instead of dist\, so they
+# end up inside the zip WITHOUT also showing up as separate release assets nobody downloads.
 Copy-Item $exe $dist -Force
-Copy-Item (Join-Path $repo "README.md")  (Join-Path $dist "README.txt")  -Force
-Copy-Item (Join-Path $repo "LICENSE")    (Join-Path $dist "LICENSE.txt") -Force
+$stage = Join-Path $dist "_bundle"
+New-Item -ItemType Directory -Force -Path $stage | Out-Null
+Copy-Item $exe $stage -Force
+Copy-Item (Join-Path $repo "README.md")  (Join-Path $stage "README.txt")  -Force
+Copy-Item (Join-Path $repo "LICENSE")    (Join-Path $stage "LICENSE.txt") -Force
 $zip = Join-Path $dist "MetalFatigueRetrofitPatcher-$version.zip"
-Compress-Archive -DestinationPath $zip -Path @(
-  (Join-Path $dist "MetalFatigueRetrofitPatcher.exe"),
-  (Join-Path $dist "README.txt"),
-  (Join-Path $dist "LICENSE.txt")
-)
+# Wildcard, not the folder itself - otherwise the zip would nest everything under _bundle\.
+Compress-Archive -DestinationPath $zip -Path (Join-Path $stage "*")
+Remove-Item $stage -Recurse -Force
 Write-Host "Standalone -> $zip" -ForegroundColor Green
 
 # --- Installer (Inno Setup). Version is passed in via /D so the .iss never drifts. ---
