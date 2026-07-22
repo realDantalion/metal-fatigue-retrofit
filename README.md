@@ -92,6 +92,15 @@ The **GOG and Steam `MFatigue.exe` are byte-identical** (SHA256 `26d428f1…`, t
 
 > Steam note: **"Verify integrity of game files"** will detect the patched EXE and re-download the original. That's expected — just re-run the patcher afterwards (your `.bak` also lets you restore). Steam does not re-verify on normal launch, so the patch persists.
 
+## Reporting a bug or an unsupported version
+
+**[Open an issue →](https://github.com/realDantalion/metal-fatigue-retrofit/issues/new/choose)**
+
+- **Something is broken** — use *Bug report*, and paste the contents of the patcher's log box. That alone usually shows the cause.
+- **The patcher doesn't recognise your build** — use *Unsupported game version* and include the file size and SHA-256 of your `MFatigue.exe`. Only the Nightdive re-release is supported so far.
+
+Not bugs: the *"unknown publisher"* warning, and Steam's *Verify integrity of game files* putting the original EXE back (just run the patcher again).
+
 ## License
 
 Copyright (C) 2026 **Dantalion** (github.com/realDantalion)
