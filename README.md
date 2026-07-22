@@ -61,7 +61,10 @@ justify for a free community patch. So instead of asking for trust, here is how 
    `Get-FileHash MetalFatigueRetrofitPatcher.exe -Algorithm SHA256` and compare.
 3. **Scan it.** Upload the exe to [VirusTotal](https://www.virustotal.com/) — unsigned tools
    that write to other programs' files sometimes trigger heuristic flags.
-4. **Build it yourself.** `dotnet build -c Release` reproduces the binary from this source.
+4. **Build it yourself.** `dotnet build -c Release` builds the patcher from this source.
+   Note that .NET stamps every build with its own build ID and source paths, so your binary
+   will **not** be byte-identical to the released one — compare the source and the behaviour,
+   not the hashes. The published checksums verify the *download*, not the build.
 
 **What the patcher actually does:**
 
