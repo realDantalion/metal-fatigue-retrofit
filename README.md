@@ -119,7 +119,7 @@ All of these are expected — please check the list before opening an issue:
 - **Steam's "Verify integrity of game files" undoes the patch.** Steam sees a modified EXE and re-downloads the original. Just run the patcher again.
 - **You still can't build more than ~50 combots.** On the *50 combots · 2× / 4× / 8× units* versions that cap is kept **on purpose** — it comes from the crew-name list. Only *Maximum* lifts it.
 - **Unit production still stops eventually.** The memory cap isn't removed, only moved far above the artificial 8 MB wall. It stays as a safety valve, so the game blocks gracefully instead of crashing.
-- **The framerate drops in huge battles.** That's the 2000-era engine. The patch removed the artificial limit; your hardware is the real one now.
+- **The framerate drops in huge battles.** That's the engine, not the patch. A 2000-era RTS was never built for these unit counts and can't spread the work across modern multi-core CPUs, so faster hardware helps far less than you would expect. The patch lifted an artificial cap — it can't make an old engine scale.
 - **The patcher refuses your `MFatigue.exe`.** Deliberate — it only touches builds it can positively identify. Report that as an *unsupported version* instead.
 - **Multiplayer desyncs.** Every player must run the **exact same** patch version. Differently patched EXEs will desync.
 - **Your allies don't see what you see.** *Share vision with allies* only changes **your** view; each player has to enable it for themselves.
@@ -143,7 +143,7 @@ It is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY
 
 ## Legal
 
-Game rights holder: Nightdive Studios / Atari. This project distributes **only the patcher**, never game code or assets — it modifies the copy you already own. Multiplayer note: all players must run the **same** build — differently-patched EXEs desync.
+Game rights holder: Nightdive Studios / Atari. This project distributes **only the patcher**, never game code or assets — it modifies the copy you already own.
 
 ## Status
 
