@@ -85,7 +85,13 @@ Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent
+; runascurrentuser is REQUIRED here, not cosmetic: postinstall entries default to
+; runasoriginaluser (non-elevated), and nowait launches via CreateProcess, which cannot
+; raise a UAC prompt. The patcher's manifest demands administrator, so that combination
+; fails with ERROR_ELEVATION_REQUIRED (740) - the checkbox errored out and started nothing.
+; Setup is already elevated (PrivilegesRequired=admin), so inheriting its token starts the
+; patcher with no extra prompt. shellexec would also work, but costs a second UAC dialog.
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait runascurrentuser postinstall skipifsilent
 
 [Code]
 // Byte size of the supported MFatigue.exe build — used to sanity-check the backup.
