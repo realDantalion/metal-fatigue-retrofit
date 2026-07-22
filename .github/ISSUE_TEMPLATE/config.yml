@@ -1,0 +1,7 @@
+# Force people through the forms above instead of an empty text box - the two things
+# that actually matter (patcher log, file hash) never turn up in free-form reports.
+blank_issues_enabled: false
+contact_links:
+  - name: Not sure if it's a bug?
+    url: https://github.com/realDantalion/metal-fatigue-retrofit#is-this-safe
+    about: The README covers the unknown-publisher warning, Steam file verification, and the multiplayer rule.

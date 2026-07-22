@@ -1,0 +1,80 @@
+name: Unsupported game version
+description: The patcher says your MFatigue.exe is not a build it recognises
+title: "[Unsupported build]: "
+labels: ["unsupported-build", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The patcher only touches builds it can positively identify, and refuses everything
+        else on purpose — patching the wrong bytes into an unknown executable would break it.
+
+        Right now only the Nightdive re-release is supported (Steam and GOG ship the identical
+        file). If you have a different build — the original 2000 CD release, a localised
+        version, or an older patch level — the two values below are exactly what's needed to
+        look into supporting it.
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where is your copy from?
+      options:
+        - Original CD / retail release
+        - Steam
+        - GOG
+        - Other digital store
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: size
+    attributes:
+      label: Exact file size of MFatigue.exe, in bytes
+      description: "Right-click the file → Properties → the number in brackets after \"Size\"."
+      placeholder: "1191989"
+    validations:
+      required: true
+
+  - type: input
+    id: sha
+    attributes:
+      label: SHA-256 of your MFatigue.exe
+      description: |
+        Open PowerShell in the game folder and run:
+        `Get-FileHash MFatigue.exe -Algorithm SHA256`
+        then paste the long Hash value here.
+      placeholder: "26d428f1ee8da3c2c499d85f2c3f002fa19e4cd63f4ae9cdc82c08d9b8547cde"
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Game version, if you know it
+      placeholder: "e.g. v1.1, or the version shown in the main menu"
+    validations:
+      required: false
+
+  - type: input
+    id: language
+    attributes:
+      label: Language of your game
+      placeholder: "English / German / French / ..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: Exact wording the patcher showed, or anything else that might help.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        **Note:** supporting another build is not a quick change — every patch offset has to be
+        located again in that executable. Reporting it is still useful: if several people turn
+        out to have the same build, that makes it worth doing.

@@ -1,0 +1,122 @@
+name: Bug report
+description: Something goes wrong in the patcher, or in the game after patching
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. The more of the fields below you fill in,
+        the faster this can be tracked down — the **patcher log** especially.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before reporting
+      description: These cover the three most common reports that are not actually bugs.
+      options:
+        - label: I am using the latest release from the Releases page.
+          required: true
+        - label: "I know that Steam's *Verify integrity of game files* restores the original EXE — re-running the patcher afterwards fixes that, and it is not a bug."
+          required: true
+        - label: "If this is about multiplayer: every player was running the exact same patch version."
+          required: false
+        - label: "I know the Windows \"unknown publisher\" warning is expected (the tool is not code-signed)."
+          required: false
+
+  - type: dropdown
+    id: store
+    attributes:
+      label: Where is your copy of the game from?
+      options:
+        - Steam
+        - GOG
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: profile
+    attributes:
+      label: Which version did you patch with?
+      options:
+        - 50 combots · 2× units
+        - 50 combots · 4× units
+        - 50 combots · 8× units
+        - Maximum
+        - Maximum + Cheats (player only)
+        - Maximum + Cheats for everyone
+        - Not sure / it failed before patching
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Where does this happen?
+      description: Multiplayer behaviour is the least-tested area, so this helps a lot.
+      options:
+        - Campaign / single player
+        - Skirmish against the AI
+        - Multiplayer
+        - Both single player and multiplayer
+        - In the patcher itself, before starting the game
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: sharedvision
+    attributes:
+      label: Optional add-on
+      options:
+        - label: "\"Share vision with allied players\" was enabled."
+          required: false
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect instead?
+      placeholder: |
+        What I did:
+        What I expected:
+        What actually happened:
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Patcher log
+      description: |
+        Copy everything from the black log box at the bottom of the patcher window.
+        This is by far the most useful thing you can attach.
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: compatline
+    attributes:
+      label: Status line in the patcher
+      description: The line just under the file path (starts with ✔, ●, or ⚠).
+      placeholder: "✔ Supported game version detected — ready to patch."
+    validations:
+      required: false
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      placeholder: "Windows 11 24H2 / Windows 10 22H2 / ..."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: tried
+    attributes:
+      label: What have you already tried?
+      options:
+        - label: Clicked "Restore original" in the patcher.
+        - label: Verified / reinstalled the game, then patched again.
+        - label: Ran the patcher as administrator.
