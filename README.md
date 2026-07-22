@@ -156,3 +156,19 @@ working with an allied player. The GUI patcher is feature-complete in 10 languag
 Not yet verified: behaviour in a real **multiplayer** match. Shared vision should be safe there
 — it only affects local rendering — but it has not been tested, and as always every player must
 run the identical build.
+
+## Thanks
+A big thank you to killzone_sx on the GOG forum:
+https://www.gog.com/forum/metal_fatigue/unit_limit
+
+A year ago he had already tracked the problem down to a function called
+MFatigue.CBasicUnit::IsGameMemoryLow, and found that forcing it to always return false
+removes the limit - but makes the game crash after a while. He also suspected the real
+cause: that the game allocates a block of memory once at startup and can never grow it.
+That turned out to be exactly right, and it's what this patch is built on. The game
+reserves a fixed pool and refuses to produce anything once a hard-coded fraction of it
+is in use. Simply switching the check off lets the game keep filling a pool that was
+never made bigger - which is why it crashes. So instead of disabling it, the patch
+enlarges the pool and moves the threshold up along with it. The limit stays in place as
+a safety net, just far above where it used to sit.
+
