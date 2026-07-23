@@ -72,6 +72,22 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>True if the file already carries exactly this profile's patched bytes.</summary>
+        static bool SameBytes(byte[] a, byte[] b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
+        }
+
+        /// <summary>Remove sites that are exact duplicates (same offset and identical patched bytes).</summary>
+        static void DedupeIdentical(System.Collections.Generic.List<PatchSite> sites)
+        {
+            for (int i = sites.Count - 1; i > 0; i--)
+                for (int j = 0; j < i; j++)
+                    if (sites[i].Offset == sites[j].Offset && SameBytes(sites[i].Patched, sites[j].Patched))
+                    { sites.RemoveAt(i); break; }
+        }
+
         static bool MatchesProfile(byte[] data, Profile p)
         {
             foreach (var s in p.Sites)
@@ -151,7 +167,15 @@ namespace MetalFatiguePatcher
             catch { return false; }
         }
 
-        public void Apply(Profile profile, bool sharedVision, Action<string> log)
+        public void Apply(Profile profile, bool sharedVision, Action<string> log) =>
+            Apply(profile, sharedVision, null, log);
+
+        /// <summary>
+        /// Apply a version profile plus any number of composed extra sites (individually selected
+        /// cheats, part/superweapon unlocks). All sites are collision-checked before anything is
+        /// written, so two features can never silently overwrite each other.
+        /// </summary>
+        public void Apply(Profile profile, bool sharedVision, System.Collections.Generic.List<PatchSite> extra, Action<string> log)
         {
             if (!File.Exists(_exePath))
                 throw new FileNotFoundException(Lang.T("err.notFound"), _exePath);
@@ -172,13 +196,23 @@ namespace MetalFatiguePatcher
             var data = File.ReadAllBytes(_bakPath);
             log(string.Format(Lang.T("log.applying"), profile.Title));
 
-            // Optional add-on patched on top of the chosen profile.
+            // Optional add-ons patched on top of the chosen profile.
             var sites = new System.Collections.Generic.List<PatchSite>(profile.Sites);
             if (sharedVision)
             {
                 sites.AddRange(PatchData.SharedVisionSites());
                 log("  + " + Lang.T("sv.label"));
             }
+            if (extra != null && extra.Count > 0)
+                sites.AddRange(extra);
+
+            // The Maximum version and the "unlimited elite crews" cheat both request the identical
+            // one-byte crew-name fix. Drop exact duplicates (same offset AND same bytes) so picking
+            // both is not mistaken for a collision; conflicting overlaps still fail below.
+            DedupeIdentical(sites);
+
+            // Never let two composed features write over each other - fail loudly first.
+            PatchData.EnsureNoCollisions(sites);
 
             foreach (var s in sites)
             {

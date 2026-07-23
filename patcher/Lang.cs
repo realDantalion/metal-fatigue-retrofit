@@ -906,6 +906,57 @@ namespace MetalFatiguePatcher
                 "복원할 백업(.bak)을 찾을 수 없습니다.",
                 "未找到可用于还原的备份 (.bak)。",
                 "Резервная копия (.bak) для восстановления не найдена." } },
+
+            // --- 2.0 cheat tab ---
+            { "tab.patch", new[]{
+                "Patch", "Patch", "Parche", "Patch", "Patch", "Patch", "パッチ", "패치", "补丁", "Патч" } },
+            { "tab.cheats", new[]{
+                "Cheats", "Cheats", "Trucos", "Cheats", "Trucchi", "Triche", "チート", "치트", "秘籍", "Читы" } },
+            { "grp.globalcheats", new[]{
+                "Always all players", "Immer alle Spieler", "Siempre todos los jugadores", "Sempre todos os jogadores", "Sempre tutti i giocatori", "Toujours tous les joueurs", "常に全プレイヤー", "항상 모든 플레이어", "始终对所有玩家", "Всегда для всех игроков" } },
+            { "grp.unlock", new[]{
+                "Unlock parts of other factions", "Teile anderer Fraktionen freischalten", "Desbloquear piezas de otras facciones", "Desbloquear peças de outras facções", "Sblocca parti di altre fazioni", "Débloquer les pièces d'autres factions", "他勢力のパーツを解禁", "다른 진영의 부품 잠금 해제", "解锁其他阵营的部件", "Разблокировать детали других фракций" } },
+            { "scope.me", new[]{
+                "Me only", "Nur ich", "Solo yo", "Só eu", "Solo io", "Moi seulement", "自分のみ", "나만", "仅自己", "Только я" } },
+            { "scope.all", new[]{
+                "All players (incl. AI)", "Alle Spieler (inkl. KI)", "Todos los jugadores (incl. IA)", "Todos os jogadores (incl. IA)", "Tutti i giocatori (incl. IA)", "Tous les joueurs (IA incl.)", "全プレイヤー（AI含む）", "모든 플레이어(AI 포함)", "所有玩家（含 AI）", "Все игроки (вкл. ИИ)" } },
+            { "scope.note", new[]{
+                "The scope above applies to Free building and Instant build. (No fog only ever affects your own view.)", "Die Auswahl oben gilt für Freies Bauen und Sofortbau. (Kein Nebel betrifft immer nur deine eigene Sicht.)", "El ámbito de arriba se aplica a Construcción gratis y Construcción instantánea. (Sin niebla solo afecta a tu propia vista.)", "O escopo acima se aplica a Construção grátis e Construção instantânea. (Sem névoa só afeta a sua própria visão.)", "L'ambito sopra vale per Costruzione gratuita e Costruzione istantanea. (Nessuna nebbia riguarda solo la tua visuale.)", "La portée ci-dessus s'applique à Construction gratuite et Construction instantanée. (Sans brouillard n'affecte que votre propre vue.)", "上記の範囲は「無料建設」と「即時建設」に適用されます。（霧なしは自分の視界のみに影響します。）", "위 범위는 무료 건설과 즉시 건설에 적용됩니다. (안개 제거는 항상 자신의 시야에만 영향을 줍니다.)", "上面的范围适用于免费建造和即时建造。（无战争迷雾仅影响你自己的视野。）", "Область выше относится к бесплатному и мгновенному строительству. (Без тумана влияет только на ваш обзор.)" } },
+            { "cheat.fog", new[]{
+                "No fog of war", "Kein Nebel des Krieges", "Sin niebla de guerra", "Sem névoa de guerra", "Nessuna nebbia di guerra", "Sans brouillard de guerre", "戦場の霧なし", "전장의 안개 제거", "无战争迷雾", "Без тумана войны" } },
+            { "cheat.build", new[]{
+                "Free building", "Freies Bauen", "Construcción gratis", "Construção grátis", "Costruzione gratuita", "Construction gratuite", "無料建設", "무료 건설", "免费建造", "Бесплатное строительство" } },
+            { "cheat.turbo", new[]{
+                "Instant build", "Sofortbau", "Construcción instantánea", "Construção instantânea", "Costruzione istantanea", "Construction instantanée", "即時建設", "즉시 건설", "即时建造", "Мгновенное строительство" } },
+            { "cheat.crews", new[]{
+                "Unlimited high-tier crews", "Unbegrenzte Elite-Crews", "Tripulaciones de alto nivel ilimitadas", "Tripulações de alto nível ilimitadas", "Equipaggi di alto livello illimitati", "Équipages de haut niveau illimités", "高ティア搭乗員が無制限", "고티어 대원 무제한", "无限高阶机组", "Неограниченные экипажи высокого ранга" } },
+            { "cheat.crews.note", new[]{
+                "Also lifts the ~50 combot limit, even without the Maximum version.",
+                "Hebt auch das ~50-Combot-Limit auf, selbst ohne die Maximum-Version.",
+                "También elimina el límite de ~50 combots, incluso sin la versión Máxima.",
+                "Também remove o limite de ~50 combots, mesmo sem a versão Máxima.",
+                "Rimuove anche il limite di ~50 combot, anche senza la versione Massima.",
+                "Supprime aussi la limite de ~50 combots, même sans la version Maximum.",
+                "「最大」バージョンでなくても、約50体のコンボット制限も解除します。",
+                "'최대' 버전이 아니어도 약 50 콤봇 제한도 해제합니다.",
+                "即使未选择“最大”版本，也会解除约 50 台 Combot 的上限。",
+                "Также снимает лимит ~50 комботов, даже без версии «Максимум»." } },
+            { "unlock.for", new[]{
+                "For:", "Für:", "Para:", "Para:", "Per:", "Pour :", "対象：", "대상:", "对象：", "Для:" } },
+            { "unlock.note", new[]{
+                "Only cross-faction parts are unlocked — your own faction's condition-locked parts still need their normal research.\nAlien parts built during the prebuild phase must be re-researched at a research center afterwards.", "Nur Teile anderer Fraktionen werden freigeschaltet — bedingungsgebundene Teile deiner eigenen Fraktion brauchen weiterhin normale Forschung.\nAlien-Teile, die in der Vorbereitungsphase gebaut werden, müssen danach im Forschungszentrum erneut erforscht werden.", "Solo se desbloquean piezas de otras facciones; las piezas de tu facción con condiciones siguen requiriendo su investigación normal.\nLas piezas alienígenas construidas en la fase de preparación deben reinvestigarse después en un centro de investigación.", "Só se desbloqueiam peças de outras facções; as peças da sua facção com condições ainda precisam da pesquisa normal.\nPeças alienígenas construídas na fase de preparação precisam ser repesquisadas depois num centro de pesquisa.", "Vengono sbloccate solo parti di altre fazioni; le parti della tua fazione con condizioni richiedono ancora la ricerca normale.\nLe parti aliene costruite nella fase di preparazione vanno riricercate dopo in un centro di ricerca.", "Seules les pièces d'autres factions sont débloquées ; les pièces de votre faction soumises à conditions nécessitent toujours leur recherche normale.\nLes pièces alien construites en phase de préparation doivent être recherchées à nouveau ensuite dans un centre de recherche.", "解禁されるのは他勢力のパーツのみです。自勢力の条件付きパーツは通常どおり研究が必要です。\n準備フェイズ中に製造したエイリアンパーツは、その後に研究施設で再研究が必要です。", "다른 진영의 부품만 잠금 해제됩니다 — 자기 진영의 조건부 부품은 여전히 일반 연구가 필요합니다.\n준비 단계에서 제작한 에일리언 부품은 이후 연구소에서 다시 연구해야 합니다.", "仅解锁其他阵营的部件——你自己阵营中带条件的部件仍需正常研究。\n在预备阶段建造的外星部件之后必须在研究中心重新研究。", "Разблокируются только детали других фракций — детали вашей фракции с условиями по-прежнему требуют обычного исследования.\nИнопланетные детали, построенные на этапе подготовки, затем нужно заново исследовать в исследовательском центре." } },
+            { "tree.superweapons", new[]{
+                "Superweapons", "Superwaffen", "Superarmas", "Superarmas", "Superarmi", "Superarmes", "スーパーウェポン", "슈퍼무기", "超级武器", "Супероружие" } },
+            { "note.fogsv", new[]{
+                "— Shared vision is on (Patch tab)", "— Geteilte Sicht ist an (Patch-Tab)", "— Visión compartida activada (pestaña Parche)", "— Visão compartilhada ativada (aba Patch)", "— Visione condivisa attiva (scheda Patch)", "— Vision partagée activée (onglet Patch)", "— 視界共有がオン（パッチタブ）", "— 시야 공유 켜짐 (패치 탭)", "— 已开启共享视野（补丁标签）", "— Общий обзор включён (вкладка «Патч»)" } },
+            { "note.svfog", new[]{
+                "Disabled — \"No fog of war\" (Cheats tab) already reveals the whole map.", "Deaktiviert — \"Kein Nebel des Krieges\" (Cheats-Tab) deckt bereits die ganze Karte auf.", "Desactivado — \"Sin niebla de guerra\" (pestaña Trucos) ya revela todo el mapa.", "Desativado — \"Sem névoa de guerra\" (aba Cheats) já revela todo o mapa.", "Disattivato — \"Nessuna nebbia di guerra\" (scheda Trucchi) rivela già tutta la mappa.", "Désactivé — \"Sans brouillard de guerre\" (onglet Triche) révèle déjà toute la carte.", "無効 — 「戦場の霧なし」（チートタブ）で既に全マップが表示されます。", "비활성화됨 — \"전장의 안개 제거\"(치트 탭)가 이미 전체 지도를 드러냅니다.", "已禁用 —「无战争迷雾」（秘籍标签）已显示整张地图。", "Отключено — «Без тумана войны» (вкладка «Читы») уже открывает всю карту." } },
+            { "slot.arm", new[]{
+                "Arm", "Arm", "Brazo", "Braço", "Braccio", "Bras", "アーム", "팔", "手臂", "Рука" } },
+            { "slot.legs", new[]{
+                "Legs", "Beine", "Piernas", "Pernas", "Gambe", "Jambes", "レッグ", "다리", "腿部", "Ноги" } },
+            { "slot.torso", new[]{
+                "Torso", "Torso", "Torso", "Torso", "Torso", "Torse", "トルソー", "몸통", "躯干", "Торс" } },
         };
     }
 }

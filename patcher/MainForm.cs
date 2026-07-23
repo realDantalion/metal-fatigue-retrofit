@@ -38,6 +38,19 @@ namespace MetalFatiguePatcher
         const string ContactUrl = "";
         GroupBox _srcGroup, _profGroup, _svGroup;
         CheckBox _sharedVision;
+
+        // --- 2.0 cheat tab ---
+        TabControl _tabs;
+        TabPage _tabPatch, _tabCheats;
+        GroupBox _cheatGroup, _globalGroup, _unlockGroup;
+        Label _scopeNote, _unlockNote, _partsForLabel, _crewsNote;
+        RadioButton _scopePlayer, _scopeAll;
+        RadioButton _partsScopePlayer, _partsScopeAll;
+        CheckBox _cheatFog, _cheatBuild, _cheatTurbo, _cheatCrews;
+        TreeView _unlockTree;
+        bool _treeCascading;   // guards the parent<->child check cascade against recursion
+        Label _svFogNote, _fogSvNote;   // "disabled because ..." notes for the fog/shared-vision clash
+        bool _fogSvSyncing;    // guards the fog <-> shared-vision mutual-exclusion cascade
         readonly ToolTip _tips = new ToolTip();
         Button _browseBtn, _patchBtn, _restoreBtn, _exitBtn;
         Panel[] _flagCells;
@@ -84,17 +97,12 @@ namespace MetalFatiguePatcher
         /// <summary>Path whose installed shared-vision state we already mirrored into the box.</summary>
         string _svSyncedPath;
 
-        // Preserves the shared-vision tick across a detour into a cheat profile.
-        bool _svForcedOff, _svBeforeCheat;
-
-        // Easter egg: click the banner 5x to unlock the cheat variants.
-        int _bannerClicks;
+        // True while the banner shows its cheat theme (driven by the active tab).
         bool _cheatUnlocked;
-        const int UnlockClicks = 5;
 
         public MainForm()
         {
-            ClientSize = new Size(760, 684);
+            ClientSize = new Size(760, 744);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -105,11 +113,23 @@ namespace MetalFatiguePatcher
 
             BuildBanner();
 
-            int y = 126;   // below the 116px banner + 10px gap
+            // Tabs: "Patch" (the bug-fix, unchanged) and "Cheats" (2.0 — individually selectable).
+            _tabs = new TabControl { Location = new Point(12, 126), Size = new Size(736, 396) };
+            _tabPatch = new TabPage();
+            _tabCheats = new TabPage();
+            _tabs.TabPages.Add(_tabPatch);
+            _tabs.TabPages.Add(_tabCheats);
+            // The banner turns to cheat mode (orange + cheat mascot) on the Cheats tab.
+            _tabs.SelectedIndexChanged += (s, e) => SetCheatBanner(_tabs.SelectedTab == _tabCheats);
+            Controls.Add(_tabs);
+            var tabPatch = _tabPatch;
+            var tabCheats = _tabCheats;
+
+            int y = 12;   // tab-local vertical walk
 
             // 1. Game source — radios, the MFatigue.exe path chooser, and the
             // compatibility status all live in this one frame.
-            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(736, 118) };
+            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 118) };
             _srcAuto  = new RadioButton { Checked = true, Location = new Point(14, 24), AutoSize = true };
             _srcSteam = new RadioButton { Text = "Steam", Location = new Point(220, 24), AutoSize = true };
             _srcGog   = new RadioButton { Text = "GOG",   Location = new Point(330, 24), AutoSize = true };
@@ -135,38 +155,45 @@ namespace MetalFatiguePatcher
             };
             _srcGroup.Controls.AddRange(new Control[] {
                 _srcAuto, _srcSteam, _srcGog, _exeLabel, _pathBox, _browseBtn, _compatLabel, _contactLink });
-            Controls.Add(_srcGroup);
-            y += 128;   // 118px frame + 10px gap (same total as before — nothing below shifts)
+            tabPatch.Controls.Add(_srcGroup);
+            y += 128;
 
-            // 3. Version
-            _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(736, 132) };
-            var orange = Color.FromArgb(186, 106, 16);
-            // all four main modes on one row
+            // 2. Version
+            _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 100) };
             _prof2x        = new RadioButton { Location = new Point(14, 24),  AutoSize = true };
             _prof4x        = new RadioButton { Checked = true, Location = new Point(210, 24), AutoSize = true };
             _prof8x        = new RadioButton { Location = new Point(420, 24), AutoSize = true };
-            _profUnleashed = new RadioButton { Location = new Point(620, 24), AutoSize = true };
-            // hidden cheat row
-            _profCheats    = new RadioButton { Location = new Point(14, 50),  AutoSize = true, Visible = false, ForeColor = orange };
-            _profCheatsAll = new RadioButton { Location = new Point(300, 50), AutoSize = true, Visible = false, ForeColor = orange };
-            _profDesc = new Label { Location = new Point(14, 78), Size = new Size(708, 46), ForeColor = Color.DimGray };
-            foreach (var rb in new[] { _prof2x, _prof4x, _prof8x, _profUnleashed, _profCheats, _profCheatsAll })
+            _profUnleashed = new RadioButton { Location = new Point(600, 24), AutoSize = true };
+            // Cheats moved to their own tab in 2.0; these two fields are kept only so the old
+            // easter-egg / detection code still compiles. They are never shown or selectable.
+            _profCheats    = new RadioButton { Visible = false };
+            _profCheatsAll = new RadioButton { Visible = false };
+            _profDesc = new Label { Location = new Point(14, 54), Size = new Size(680, 40), ForeColor = Color.DimGray };
+            foreach (var rb in new[] { _prof2x, _prof4x, _prof8x, _profUnleashed })
                 rb.CheckedChanged += (s, e) => UpdateProfDesc();
-            _profGroup.Controls.AddRange(new Control[] { _prof2x, _prof4x, _prof8x, _profUnleashed, _profCheats, _profCheatsAll, _profDesc });
-            Controls.Add(_profGroup);
-            y += 142;
+            _profGroup.Controls.AddRange(new Control[] { _prof2x, _prof4x, _prof8x, _profUnleashed, _profDesc });
+            tabPatch.Controls.Add(_profGroup);
+            y += 110;
 
             // 3. Shared vision — optional add-on, framed like the sections above.
-            // (The cheat variants turn the fog off entirely, so it is disabled there.)
-            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(736, 58) };
+            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 74) };
             _sharedVision = new CheckBox { Location = new Point(14, 24), AutoSize = true };
             _tips.SetToolTip(_sharedVision, "");
-            // Shows what the installed exe actually has — the checkbox itself is the
-            // desired state, this is the current one (same idea as the version line).
             _svStatus = new Label { Location = new Point(300, 26), AutoSize = true, Visible = false };
-            _svGroup.Controls.AddRange(new Control[] { _sharedVision, _svStatus });
-            Controls.Add(_svGroup);
-            y += 68;
+            _svFogNote = new Label
+            {
+                Text = "Disabled — \"No fog of war\" (Cheats tab) already reveals the whole map.",
+                Location = new Point(14, 48), Size = new Size(680, 16), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f), Visible = false
+            };
+            _sharedVision.CheckedChanged += (s, e) => UpdateSharedVisionState();
+            _svGroup.Controls.AddRange(new Control[] { _sharedVision, _svStatus, _svFogNote });
+            tabPatch.Controls.Add(_svGroup);
+
+            BuildCheatTab(tabCheats);
+
+            // everything below the tabs
+            y = 126 + _tabs.Height + 10;
 
             // 4. Buttons
             _patchBtn = new Button
@@ -220,6 +247,123 @@ namespace MetalFatiguePatcher
             Detect();
         }
 
+        // ---------- cheat tab (2.0) ----------
+
+        void BuildCheatTab(TabPage tab)
+        {
+            var orange = Color.FromArgb(186, 106, 16);
+
+            // Scope: player only vs everyone (AI included). Parts/superweapon unlocks are always
+            // local-player only, so the scope governs the resource/build cheats.
+            // Scoped cheats — the "me only / all players" switch governs exactly these.
+            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 84), ForeColor = orange };
+            _scopePlayer = new RadioButton { Checked = true, Location = new Point(14, 20), AutoSize = true };
+            _scopeAll = new RadioButton { Location = new Point(120, 20), AutoSize = true };
+            _cheatBuild = new CheckBox { Location = new Point(14, 48), AutoSize = true };
+            _cheatTurbo = new CheckBox { Location = new Point(160, 48), AutoSize = true };
+            // Fog sits on the right, right next to its "disabled because shared vision is on" note.
+            _cheatFog   = new CheckBox { Location = new Point(300, 48), AutoSize = true };
+            _fogSvNote = new Label
+            {
+                Location = new Point(470, 50), Size = new Size(232, 14), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f), Visible = false
+            };
+            _scopeNote = new Label
+            {
+                Location = new Point(300, 22), Size = new Size(400, 24), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+            };
+            _cheatFog.CheckedChanged += (s, e) => UpdateSharedVisionState();
+            _cheatGroup.Controls.AddRange(new Control[] { _scopePlayer, _scopeAll, _scopeNote, _cheatFog, _cheatBuild, _cheatTurbo, _fogSvNote });
+            tab.Controls.Add(_cheatGroup);
+
+            // Always-global cheats — no scope, so they live in their own little section.
+            _globalGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 48), ForeColor = orange };
+            _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
+            // The crews cheat includes the crew-name fix, so it also lifts the ~50 combot limit even
+            // on a non-Maximum version. Say so, since that overlaps with what the Version tab does.
+            _crewsNote = new Label
+            {
+                Location = new Point(230, 22), Size = new Size(470, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+            };
+            _globalGroup.Controls.AddRange(new Control[] { _cheatCrews, _crewsNote });
+            tab.Controls.Add(_globalGroup);
+
+            // Unlock tree: combot parts (by faction) + superweapons, each a checkable node.
+            _unlockGroup = new GroupBox { Location = new Point(12, 158), Size = new Size(708, 200), ForeColor = orange };
+            // Parts get their own scope: the AI does use foreign parts (confirmed in testing), so
+            // "all players" is a real option here, separate from the resource-cheat scope above.
+            _partsForLabel = new Label { Location = new Point(14, 22), AutoSize = true, ForeColor = Color.DimGray };
+            _partsScopePlayer = new RadioButton { Checked = true, Location = new Point(48, 20), AutoSize = true };
+            _partsScopeAll = new RadioButton { Location = new Point(140, 20), AutoSize = true };
+            _unlockTree = new TreeView
+            {
+                Location = new Point(14, 46), Size = new Size(680, 110),
+                CheckBoxes = true, ShowRootLines = true, HideSelection = true
+            };
+            BuildUnlockTree();
+            _unlockTree.AfterCheck += (s, e) =>
+            {
+                if (_treeCascading) return;
+                _treeCascading = true;
+                foreach (TreeNode c in e.Node.Nodes) c.Checked = e.Node.Checked;
+                _treeCascading = false;
+            };
+            // Two things worth stating up front (both are "won't fix", just expectations):
+            _unlockNote = new Label
+            {
+                Location = new Point(14, 160), Size = new Size(680, 32), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+            };
+            _unlockGroup.Controls.AddRange(new Control[] { _partsForLabel, _partsScopePlayer, _partsScopeAll, _unlockTree, _unlockNote });
+            tab.Controls.Add(_unlockGroup);
+        }
+
+        void BuildUnlockTree()
+        {
+            // Preserve ticks across a rebuild (e.g. a language switch re-labels the nodes).
+            var wasChecked = new System.Collections.Generic.HashSet<uint>(GatherUnlockAddrs());
+
+            _treeCascading = true;   // suppress the cascade handler while we repopulate
+            _unlockTree.BeginUpdate();
+            _unlockTree.Nodes.Clear();
+            foreach (var faction in PartsData.Factions)
+            {
+                var fnode = new TreeNode(FactionLabel(faction));
+                foreach (var slot in PartsData.Slots)
+                    foreach (var p in PartsData.Parts)
+                        if (p.Faction == faction && p.Slot == slot)
+                            fnode.Nodes.Add(new TreeNode(p.Name + "  (" + Lang.T("slot." + slot.ToLowerInvariant()) + ")")
+                                { Tag = p.Addr, Checked = wasChecked.Contains(p.Addr) });
+                _unlockTree.Nodes.Add(fnode);
+            }
+            var sw = new TreeNode(Lang.T("tree.superweapons"));
+            foreach (var s in PartsData.Superweapons)
+                sw.Nodes.Add(new TreeNode(s.Name) { Tag = s.Addr, Checked = wasChecked.Contains(s.Addr) });
+            _unlockTree.Nodes.Add(sw);
+            _unlockTree.EndUpdate();
+            _treeCascading = false;
+        }
+
+        static string FactionLabel(string key)
+        {
+            switch (key)
+            {
+                case "MilAgro": return "Mil-Agro";
+                case "Hedoth":  return "Hedoth (Alien)";
+                default:        return key;
+            }
+        }
+
+        /// <summary>Collect the descriptor addresses of every checked part/superweapon leaf.</summary>
+        System.Collections.Generic.List<uint> GatherUnlockAddrs()
+        {
+            var addrs = new System.Collections.Generic.List<uint>();
+            foreach (TreeNode top in _unlockTree.Nodes)
+                foreach (TreeNode leaf in top.Nodes)
+                    if (leaf.Checked && leaf.Tag is uint a)
+                        addrs.Add(a);
+            return addrs;
+        }
+
         // ---------- banner ----------
 
         void BuildBanner()
@@ -242,7 +386,7 @@ namespace MetalFatiguePatcher
                 // padding on top, so the box is lifted out of the panel by exactly that
                 // much. Only transparent pixels get clipped; the robot starts at y=4.
                 Location = new Point(12, -11), Size = new Size(132, 132),
-                BackColor = Color.Transparent, Cursor = Cursors.Hand
+                BackColor = Color.Transparent
             };
             var pic = _mascot;
 
@@ -289,61 +433,27 @@ namespace MetalFatiguePatcher
 
             _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub });
             Controls.Add(_banner);
-
-            // The easter egg lives on the mascot only — poking the robot is the secret,
-            // and the hand cursor over him is the only hint. Clicking elsewhere on the
-            // banner does nothing.
-            EventHandler poke = (s, e) => MascotClicked();
-            pic.Click += poke;
-            // Fast clicking raises DoubleClick for every second click, which would otherwise
-            // be swallowed and make the easter egg need more clicks than the robot promises.
-            pic.DoubleClick += poke;
-        }
-
-        /// <summary>Poking the robot mascot 5x unlocks the cheat variants.</summary>
-        void MascotClicked()
-        {
-            if (_cheatUnlocked) return;
-            _bannerClicks++;
-            if (_bannerClicks >= UnlockClicks) { UnlockCheats(true); return; }
-            ShowBotLine();
-        }
-
-        /// <summary>The robot in the banner talks back (Warcraft-style click responses).</summary>
-        void ShowBotLine()
-        {
-            _bannerSub.Text = Lang.T("bot.click" + _bannerClicks);
-            bool lastWarning = _bannerClicks == UnlockClicks - 1;
-            _bannerSub.ForeColor = lastWarning
-                ? Color.FromArgb(255, 214, 120)     // ominous gold for the final warning
-                : Color.FromArgb(206, 222, 245);
-            _bannerSub.Font = new Font("Segoe UI", 8.5f, lastWarning ? FontStyle.Bold : FontStyle.Regular);
         }
 
         /// <summary>
-        /// Reveals the cheat variants. Triggered by the banner easter egg (announce: true)
-        /// or silently when the selected exe already carries a cheat patch.
-        /// Deliberately does NOT call ApplyLanguage() — that would recurse via UpdateCompat.
+        /// The banner follows the active tab: on the Cheats tab it turns orange and shows the
+        /// cheat mascot; on the Patch tab it is the normal blue banner. (This replaced the old
+        /// click-the-robot easter egg.)
         /// </summary>
-        void UnlockCheats(bool announce)
+        void SetCheatBanner(bool cheat)
         {
-            if (_cheatUnlocked) return;
-            _cheatUnlocked = true;
-            _profCheats.Visible = true;
-            _profCheatsAll.Visible = true;
-            _bannerTitle.Text = Lang.T("banner.cheatTitle");
-            _bannerSub.Text = Lang.T("banner.cheatSub");
-            _bannerSub.ForeColor = Color.FromArgb(255, 236, 190);
-            _bannerSub.Font = new Font("Segoe UI", 8.5f, FontStyle.Regular);
-            // Swap in the alternate mascot. If it was never supplied, show a loud
-            // missing-texture placeholder instead of silently keeping the normal one,
-            // so a forgotten asset is impossible to overlook.
+            if (_cheatUnlocked == cheat) return;
+            _cheatUnlocked = cheat;
+            // Title stays "Metal Fatigue Retrofit" in both modes; only the subtitle + theme change.
+            _bannerTitle.Text = Lang.T("banner.title");
+            _bannerSub.Text = Lang.T(cheat ? "banner.cheatSub" : "banner.sub");
+            _bannerSub.ForeColor = cheat ? Color.FromArgb(255, 236, 190) : Color.FromArgb(185, 200, 225);
+            // Swap in the alternate mascot. If it was never supplied, show a loud missing-texture
+            // placeholder instead of silently keeping the normal one.
             if (_mascot != null)
             {
-                if (_logoCheat != null)
-                {
-                    _mascot.Image = _logoCheat;
-                }
+                if (!cheat) _mascot.Image = _logo;
+                else if (_logoCheat != null) _mascot.Image = _logoCheat;
                 else
                 {
                     _mascot.Image = _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
@@ -351,11 +461,6 @@ namespace MetalFatiguePatcher
                 }
             }
             _banner.Invalidate();
-            if (announce)
-            {
-                Log(Lang.T("msg.unlocked"));
-                try { System.Media.SystemSounds.Asterisk.Play(); } catch { }
-            }
         }
 
         // ---------- localization ----------
@@ -363,11 +468,8 @@ namespace MetalFatiguePatcher
         void ApplyLanguage()
         {
             Text                 = Lang.T("window.title");
-            _bannerTitle.Text    = _cheatUnlocked ? Lang.T("banner.cheatTitle") : Lang.T("banner.title");
-            // keep the robot's line if the user is mid-easter-egg
-            if (_cheatUnlocked)                      _bannerSub.Text = Lang.T("banner.cheatSub");
-            else if (_bannerClicks > 0)              ShowBotLine();
-            else                                     _bannerSub.Text = Lang.T("banner.sub");
+            _bannerTitle.Text    = Lang.T("banner.title");
+            _bannerSub.Text      = _cheatUnlocked ? Lang.T("banner.cheatSub") : Lang.T("banner.sub");
             _srcGroup.Text       = Lang.T("grp.source");
             _srcAuto.Text        = Lang.T("src.auto");
             _exeLabel.Text       = Lang.T("lbl.exe");
@@ -389,6 +491,35 @@ namespace MetalFatiguePatcher
             _tips.SetToolTip(_sharedVision, Lang.T("sv.hint"));
             // The checkbox auto-sizes per language, so park the status right after it.
             _svStatus.Left = _sharedVision.Right + 16;
+
+            // --- 2.0 cheat tab ---
+            if (_tabPatch != null)
+            {
+                _tabPatch.Text        = Lang.T("tab.patch");
+                _tabCheats.Text       = Lang.T("tab.cheats");
+                _cheatGroup.Text      = Lang.T("tab.cheats");
+                _globalGroup.Text     = Lang.T("grp.globalcheats");
+                _unlockGroup.Text     = Lang.T("grp.unlock");
+                _scopePlayer.Text     = Lang.T("scope.me");
+                _scopeAll.Text        = Lang.T("scope.all");
+                _scopeNote.Text       = Lang.T("scope.note");
+                _cheatFog.Text        = Lang.T("cheat.fog");
+                _cheatBuild.Text      = Lang.T("cheat.build");
+                _cheatTurbo.Text      = Lang.T("cheat.turbo");
+                _cheatCrews.Text      = Lang.T("cheat.crews");
+                _crewsNote.Text       = Lang.T("cheat.crews.note");
+                _partsForLabel.Text   = Lang.T("unlock.for");
+                _partsScopePlayer.Text = Lang.T("scope.me");
+                _partsScopeAll.Text   = Lang.T("scope.all");
+                _unlockNote.Text      = Lang.T("unlock.note");
+                _svFogNote.Text       = Lang.T("note.svfog");
+                _fogSvNote.Text       = Lang.T("note.fogsv");
+                // The parts scope radios sit after the "For:" label, which resizes per language.
+                _partsScopePlayer.Left = _partsForLabel.Right + 6;
+                _partsScopeAll.Left    = _partsScopePlayer.Right + 12;
+                // Re-label the tree nodes (slot suffixes + "Superweapons") in the new language.
+                BuildUnlockTree();
+            }
 
             // highlight the active language flag
             if (_flagCells != null)
@@ -412,9 +543,6 @@ namespace MetalFatiguePatcher
             string profKey; bool exact;
             var c = Patcher.Check(_pathBox.Text.Trim(), out profKey, out exact);
             bool canPatch;
-
-            // Already running a cheat build? Then there is nothing left to hide.
-            if (profKey == "cheats" || profKey == "cheats_all") UnlockCheats(false);
 
             switch (c)
             {
@@ -456,6 +584,7 @@ namespace MetalFatiguePatcher
 
             // Grey out the version choice + patch button when we can't safely patch.
             _profGroup.Enabled = canPatch;
+            _svGroup.Enabled = canPatch;
             _patchBtn.Enabled = canPatch;
 
             var path = _pathBox.Text.Trim();
@@ -467,6 +596,7 @@ namespace MetalFatiguePatcher
             {
                 _svSyncedPath = path;
                 _sharedVision.Checked = svInstalled;
+                RestoreFromExe(path, profKey, c);
             }
             UpdateSharedVisionState();
 
@@ -501,13 +631,25 @@ namespace MetalFatiguePatcher
         {
             get
             {
-                if (_profCheatsAll != null && _profCheatsAll.Checked) return PatchData.ByKey("cheats_all");
-                if (_profCheats != null && _profCheats.Checked)       return PatchData.ByKey("cheats");
                 if (_prof2x.Checked)        return PatchData.ByKey("balanced2x");
                 if (_prof8x.Checked)        return PatchData.ByKey("balanced8x");
                 if (_profUnleashed.Checked) return PatchData.ByKey("unleashed");
                 return PatchData.ByKey("balanced4x");
             }
+        }
+
+        /// <summary>The extra sites for the currently ticked cheats and part/superweapon unlocks.</summary>
+        System.Collections.Generic.List<PatchSite> ComposeExtras()
+        {
+            var features = new System.Collections.Generic.HashSet<string>();
+            if (_cheatFog.Checked)   features.Add(PatchData.CheatFog);
+            if (_cheatBuild.Checked) features.Add(PatchData.CheatFreeBuild);
+            if (_cheatTurbo.Checked) features.Add(PatchData.CheatTurbo);
+            if (_cheatCrews.Checked) features.Add(PatchData.CheatCrews);
+
+            var extras = PatchData.CheatFeatureSites(features, _scopeAll.Checked);
+            extras.AddRange(PatchData.PartsUnlockSites(GatherUnlockAddrs(), _partsScopeAll.Checked));
+            return extras;
         }
 
         void UpdateProfDesc()
@@ -517,33 +659,93 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
-        /// The cheat variants switch the fog off entirely, so shared vision is meaningless
-        /// there — clear the box and grey it out until a normal version is chosen again.
+        /// "No fog of war" reveals the whole map, which makes "share vision with allies"
+        /// meaningless — so the two are mutually exclusive. Whichever is ticked disables the
+        /// other and shows a short note saying why. Runs across both tabs.
         /// </summary>
         void UpdateSharedVisionState()
         {
-            if (_sharedVision == null) return;
-            bool cheat = (_profCheats != null && _profCheats.Checked)
-                      || (_profCheatsAll != null && _profCheatsAll.Checked);
-
-            // Remember the user's choice while a cheat profile forces the box off, and
-            // hand it back when they switch away again — otherwise the tick would be
-            // silently lost and the next Patch would quietly drop an installed add-on.
-            if (cheat && !_svForcedOff)
+            if (_sharedVision == null || _cheatFog == null) return;
+            if (_fogSvSyncing) return;
+            _fogSvSyncing = true;
+            try
             {
-                _svForcedOff = true;
-                _svBeforeCheat = _sharedVision.Checked;
-                _sharedVision.Checked = false;
+                bool fog = _cheatFog.Checked;
+                bool sv = _sharedVision.Checked;
+
+                // Fog wins if it is on: shared vision is moot with the whole map revealed.
+                if (fog)
+                {
+                    if (sv) _sharedVision.Checked = false;
+                    _sharedVision.Enabled = false;
+                    _svFogNote.Visible = true;
+                }
+                else
+                {
+                    // Only re-enable the box if the whole group is enabled (compatible exe present).
+                    _sharedVision.Enabled = _svGroup.Enabled;
+                    _svFogNote.Visible = false;
+                }
+
+                if (sv && !fog)
+                {
+                    _cheatFog.Enabled = false;
+                    _fogSvNote.Visible = true;
+                }
+                else
+                {
+                    _cheatFog.Enabled = true;
+                    _fogSvNote.Visible = false;
+                }
             }
-            else if (!cheat && _svForcedOff)
+            finally { _fogSvSyncing = false; }
+        }
+
+        /// <summary>
+        /// Restore every UI setting from what the exe actually carries, so loading a file can
+        /// never silently drop an installed cheat / unlock on the next patch. A pristine (or
+        /// unknown) file resets everything to defaults.
+        /// </summary>
+        void RestoreFromExe(string path, string versionKey, Patcher.Compat c)
+        {
+            // Version radio from detection; default 4x when none is detected.
+            switch (versionKey)
             {
-                _svForcedOff = false;
-                _sharedVision.Checked = _svBeforeCheat;
+                case "balanced2x": _prof2x.Checked = true; break;
+                case "balanced8x": _prof8x.Checked = true; break;
+                case "unleashed":  _profUnleashed.Checked = true; break;
+                default:           _prof4x.Checked = true; break;
             }
 
-            // Dim the whole "3." box (title + checkbox + status) when cheats are on
-            // or no compatible exe is selected, matching the version group.
-            _svGroup.Enabled = !cheat && _profGroup.Enabled;
+            PatchData.Installed inst = null;
+            if (c == Patcher.Compat.PatchedByUs || c == Patcher.Compat.Unsupported)
+                try { inst = PatchData.DetectInstalled(File.ReadAllBytes(path)); } catch { }
+            inst = inst ?? new PatchData.Installed();   // pristine / unreadable -> all off
+
+            _cheatFog.Checked        = inst.Fog;
+            _cheatBuild.Checked      = inst.FreeBuild;
+            _cheatTurbo.Checked      = inst.Turbo;
+            _cheatCrews.Checked      = inst.Crews;
+            _scopeAll.Checked        = inst.CheatScopeAll;
+            _scopePlayer.Checked     = !inst.CheatScopeAll;
+            _partsScopeAll.Checked   = inst.PartsScopeAll;
+            _partsScopePlayer.Checked = !inst.PartsScopeAll;
+
+            // Restore the part/superweapon tree from the unlocked descriptor addresses.
+            var set = new System.Collections.Generic.HashSet<uint>(inst.UnlockedAddrs);
+            _treeCascading = true;
+            foreach (TreeNode top in _unlockTree.Nodes)
+            {
+                bool allOn = top.Nodes.Count > 0;
+                foreach (TreeNode leaf in top.Nodes)
+                {
+                    bool on = leaf.Tag is uint a && set.Contains(a);
+                    leaf.Checked = on;
+                    if (!on) allOn = false;
+                }
+                top.Checked = allOn;   // the faction parent reflects "all its parts on"
+            }
+            _treeCascading = false;
         }
 
         void Log(string s) => _log.AppendText(s + Environment.NewLine);
@@ -586,7 +788,7 @@ namespace MetalFatiguePatcher
             }
             try
             {
-                new Patcher(path).Apply(Selected, _sharedVision.Checked, Log);
+                new Patcher(path).Apply(Selected, _sharedVision.Checked, ComposeExtras(), Log);
                 _svSyncedPath = null;   // force a re-read of the installed state
                 UpdateCompat();
                 MessageBox.Show(string.Format(Lang.T("msg.patchOk"), Selected.Title),

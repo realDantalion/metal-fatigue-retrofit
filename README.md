@@ -49,6 +49,31 @@ of crashing) — just moved far above the artificial 8 MB wall.
 **Optional add-on:** *share vision with allies* — allied units also lift your fog of war.
 Combinable with any of the versions above.
 
+## Cheats (optional)
+
+A separate **Cheats** tab, layered on top of whichever version you pick — nothing here is needed
+for the bug fixes, it's just for fun and experimenting. Everything is individually toggleable:
+
+- **No fog of war**, **Free building**, **Instant build**, **Unlimited elite crews**.
+- A **Me only / All players (incl. AI)** switch for Free building and Instant build — hand the
+  AI the same advantages, or keep them for yourself.
+- **Unlock combot parts of other factions** — a checkable tree of every faction's arms, legs and
+  torsos, plus the three faction-specific **superweapons**. Build a Rimtech mech with a Neuropa
+  plasma cannon and MilAgro legs. The AI actually uses unlocked parts too (its own build logic
+  already salvages and researches enemy parts), so there's a scope switch here as well.
+
+Loading an already-patched EXE restores every one of these settings in the interface, so
+re-patching never silently drops what you had.
+
+Good to know (all working as intended, not bugs):
+
+- Only *cross-faction* parts are unlocked. Your own faction's parts that sit behind research
+  conditions still need their normal research.
+- Alien parts built during the **prebuild phase** must be re-researched at a research center
+  afterwards.
+- Unit and crew limits always apply to every player; part unlocks always apply to you (unless you
+  flip the switch to all players).
+
 ## Is this safe?
 
 Windows shows an **"unknown publisher"** warning. That is expected: the patcher is not
@@ -127,7 +152,7 @@ All of these are expected — please check the list before opening an issue:
   - The widely used **German language patch is unaffected** — it was checked, and it only replaces files under `TBD\` (mission data, text, cinematics). It never touches `MFatigue.exe`, so it works alongside this patcher in either order.
 - **Multiplayer desyncs.** Every player must run the **exact same** patch version. Differently patched EXEs will desync.
 - **Your allies don't see what you see.** *Share vision with allies* only changes **your** view; each player has to enable it for themselves.
-- **The AI is brutally strong.** If you picked *Cheats for everyone*, the cheats apply to the AI too. That's what that variant does.
+- **The AI is brutally strong.** If you set a cheat's scope to *All players (incl. AI)*, or unlocked parts for all players, the AI gets those advantages too. That's what the switch does.
 - **The game won't start after you renamed the EXE.** Metal Fatigue refuses to launch under any name other than `MFatigue.exe`. That's the game, not the patch.
 
 ## License
