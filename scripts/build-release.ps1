@@ -1,7 +1,7 @@
 <#
   Builds the Metal Fatigue Retrofit release artifacts into dist\:
-    - Standalone:  MetalFatigueRetrofitPatcher.exe, and a versioned .zip bundling it with
-                   README.txt + LICENSE.txt (the licence-complete single download)
+    - Standalone:  MetalFatigueRetrofitPatcher-<ver>.exe, and a versioned .zip bundling a plainly
+                   named copy with README.txt + LICENSE.txt (the licence-complete single download)
     - Installer:   MetalFatigueRetrofitPatcher-Setup-<ver>.exe   (needs Inno Setup 6)
     - SHA256SUMS.txt covering everything above
 
@@ -42,7 +42,9 @@ New-Item -ItemType Directory -Force -Path $dist | Out-Null
 # The zip is the GPL-complete download (program + LICENSE + README in one file); the loose exe
 # is just the frictionless path. The docs are staged in a temp folder instead of dist\, so they
 # end up inside the zip WITHOUT also showing up as separate release assets nobody downloads.
-Copy-Item $exe $dist -Force
+# The loose exe carries the version in its filename (like the Setup.exe); the copy INSIDE the zip
+# stays plainly named so it extracts to a clean MetalFatigueRetrofitPatcher.exe.
+Copy-Item $exe (Join-Path $dist "MetalFatigueRetrofitPatcher-$version.exe") -Force
 $stage = Join-Path $dist "_bundle"
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 Copy-Item $exe $stage -Force

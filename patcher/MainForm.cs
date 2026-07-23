@@ -431,8 +431,25 @@ namespace MetalFatiguePatcher
                 _banner.Controls.Add(cell);
             }
 
-            _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub });
+            // Version tag, bottom-right of the banner. Read from the assembly (single source of
+            // truth = the .csproj <Version>), so it never drifts.
+            var ver = new Label
+            {
+                Text = VersionString(),
+                Font = new Font("Segoe UI", 7.5f), BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(200, 212, 228), AutoSize = true
+            };
+            _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub, ver });
+            ver.Location = new Point(_banner.Width - ver.Width - 8, _banner.Height - ver.Height - 4);
+            ver.BringToFront();
             Controls.Add(_banner);
+        }
+
+        /// <summary>"v1.1.0" from the assembly version — no hard-coded string to keep in sync.</summary>
+        static string VersionString()
+        {
+            var v = Assembly.GetExecutingAssembly().GetName().Version;
+            return v == null ? "" : string.Format("v{0}.{1}.{2}", v.Major, v.Minor, v.Build);
         }
 
         /// <summary>
@@ -467,7 +484,7 @@ namespace MetalFatiguePatcher
 
         void ApplyLanguage()
         {
-            Text                 = Lang.T("window.title");
+            Text                 = Lang.T("window.title") + "  " + VersionString();
             _bannerTitle.Text    = Lang.T("banner.title");
             _bannerSub.Text      = _cheatUnlocked ? Lang.T("banner.cheatSub") : Lang.T("banner.sub");
             _srcGroup.Text       = Lang.T("grp.source");
