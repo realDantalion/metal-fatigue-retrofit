@@ -18,6 +18,7 @@ using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Windows.Forms;
 
@@ -49,7 +50,7 @@ namespace MetalFatiguePatcher
 
         // --- 2.0 cheat tab ---
         TabControl _tabs;
-        TabPage _tabPatch, _tabCheats, _tabExperimental;
+        TabPage _tabPatch, _tabCheats, _tabExperimental, _tabMusic;
         GroupBox _cheatGroup, _globalGroup, _unlockGroup;
         Label _scopeNote, _unlockNote, _partsForLabel, _crewsNote;
         RadioButton _scopePlayer, _scopeAll;
@@ -93,7 +94,19 @@ namespace MetalFatiguePatcher
         /// While it is absent, cheat mode deliberately shows a loud missing-texture
         /// placeholder (see MakeMissingMascot) so the gap cannot be shipped unnoticed.
         /// </summary>
-        Image _logo, _logoCheat, _logoExperimental;
+        Image _logo, _logoCheat, _logoExperimental, _logoMusic;
+        GroupBox _musicGroup;
+        Label _musicIntro, _musicStatus, _musicTime, _musicVolLbl;
+        Label _musicLegendActive, _musicLegendPending, _musicLegendMismatch;
+        FlowLayoutPanel _musicLegend;
+        Button _musicPickFolder, _musicPickZip, _musicRemove, _musicPlay, _musicPlayStop;
+        DataGridView _musicGrid;
+        TrackBar _musicSeek, _musicVol;
+        Timer _musicTimer;
+        MusicPreview _musicPreview;
+        System.Collections.Generic.List<MusicImport.Candidate> _musicTracks =
+            new System.Collections.Generic.List<MusicImport.Candidate>();
+        bool _musicSeeking;
         Image _missingMascot;
 
         /// <summary>
@@ -129,7 +142,7 @@ namespace MetalFatiguePatcher
 
         // The banner theme is driven by the active tab: blue (Patch), orange (Cheats),
         // Neuropa faction green (Experimental).
-        enum BannerTheme { Patch, Cheats, Experimental }
+        enum BannerTheme { Patch, Cheats, Experimental, Music }
         BannerTheme _bannerTheme = BannerTheme.Patch;
 
         public MainForm()
@@ -143,6 +156,7 @@ namespace MetalFatiguePatcher
             _logo = LoadEmbedded("MetalFatiguePatcher.logo.png");
             _logoCheat = LoadEmbedded("MetalFatiguePatcher.logo_cheat.png");   // optional
             _logoExperimental = LoadEmbedded("MetalFatiguePatcher.logo_experimental.png");   // optional (Neuropa mascot)
+            _logoMusic = LoadEmbedded("MetalFatiguePatcher.logo_music.png");                 // optional (Rimtech, with violin)
 
             BuildBanner();
 
@@ -151,14 +165,17 @@ namespace MetalFatiguePatcher
             _tabPatch = new TabPage();
             _tabCheats = new TabPage();
             _tabExperimental = new TabPage();
+            _tabMusic = new TabPage();
             _tabs.TabPages.Add(_tabPatch);
             _tabs.TabPages.Add(_tabCheats);
             _tabs.TabPages.Add(_tabExperimental);
+            _tabs.TabPages.Add(_tabMusic);
             // The banner theme follows the active tab: blue (Patch), orange (Cheats),
             // Neuropa faction green (Experimental).
             _tabs.SelectedIndexChanged += (s, e) => SetBannerTheme(
                 _tabs.SelectedTab == _tabCheats       ? BannerTheme.Cheats :
                 _tabs.SelectedTab == _tabExperimental ? BannerTheme.Experimental :
+                _tabs.SelectedTab == _tabMusic        ? BannerTheme.Music :
                                                         BannerTheme.Patch);
             Controls.Add(_tabs);
             var tabPatch = _tabPatch;
@@ -254,6 +271,7 @@ namespace MetalFatiguePatcher
 
             BuildCheatTab(tabCheats);
             BuildExperimentalTab(_tabExperimental);
+            BuildMusicTab(_tabMusic);
 
             // everything below the tabs
             y = 126 + _tabs.Height + 10;
@@ -420,8 +438,422 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
+        /// Music tab: put back the Rimtech soundtrack the re-release is missing. Unlike every other
+        /// tab this one needs files from the user — the patcher ships no audio and names no source.
+        ///
+        /// The list lives here rather than in a dialog, because it is not a one-off question: it IS
+        /// the state of the feature. It shows what is on disk right now, so loading an already-patched
+        /// game reconstructs the arrangement the same way every other tab restores its settings.
+        ///
+        /// Importing only copies files. The 16-byte table edit rides along with the normal Patch
+        /// button like every other change — writing the exe straight from here would be the one place
+        /// in the tool where a setting takes effect without pressing Patch.
+        /// </summary>
+        void BuildMusicTab(TabPage tab)
+        {
+            var violet = Color.FromArgb(88, 48, 150);
+            _musicGroup = new GroupBox { Location = new Point(12, 6), Size = new Size(708, 380), ForeColor = violet };
+
+            // y=26, not 20: a GroupBox draws its caption on the frame line, and text starting any
+            // higher runs into it.
+            _musicIntro = new Label
+            {
+                Location = new Point(14, 26), Size = new Size(680, 42),
+                ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f)
+            };
+
+            _musicPickFolder = new Button { Location = new Point(14, 74), Size = new Size(150, 26) };
+            _musicPickZip    = new Button { Location = new Point(172, 74), Size = new Size(150, 26) };
+            _musicRemove     = new Button { Location = new Point(544, 74), Size = new Size(150, 26) };
+            _musicPickFolder.Click += (s, e) => ImportMusic(false);
+            _musicPickZip.Click    += (s, e) => ImportMusic(true);
+            _musicRemove.Click     += (s, e) => RemoveMusic();
+
+            // A grid, not a ListView: the per-row buttons are the discoverable way to reorder, and
+            // only a grid gives them to us without owner-drawing and hit-testing by hand.
+            _musicGrid = new DataGridView
+            {
+                Location = new Point(14, 108), Size = new Size(680, 192),
+                AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false,
+                // Text columns may be widened — a long file name is worth more room. The two button
+                // columns are pinned further down: stretching a button changes nothing but its looks.
+                AllowUserToResizeColumns = true, AllowUserToOrderColumns = false,
+                RowHeadersVisible = false, MultiSelect = false, ReadOnly = true,
+                SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+                AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None,
+                BackgroundColor = SystemColors.Window, BorderStyle = BorderStyle.FixedSingle,
+                EditMode = DataGridViewEditMode.EditProgrammatically,
+                Font = new Font("Segoe UI", 8.25f), ColumnHeadersHeightSizeMode = DataGridViewColumnHeadersHeightSizeMode.DisableResizing,
+                // Vertical only: the columns are sized to fit, and a horizontal bar would just be a
+                // sign that they are not.
+                ScrollBars = ScrollBars.Vertical,
+            };
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "slot", Width = 62 });
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "file", Width = 228 });
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "exp",  Width = 72,
+                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "act",  Width = 72,
+                DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "match", Width = 112 });
+            // Only the reorder arrows live in the rows — they act on that row and nothing else.
+            // Playback belongs to the transport below, next to stop and the seek bar, because those
+            // three are one control surface for one thing that is playing.
+            _musicGrid.Columns.Add(new DataGridViewButtonColumn { Name = "up",   Width = 34, Text = "▲", UseColumnTextForButtonValue = true, HeaderText = "",
+                Resizable = DataGridViewTriState.False });
+            _musicGrid.Columns.Add(new DataGridViewButtonColumn { Name = "down", Width = 34, Text = "▼", UseColumnTextForButtonValue = true, HeaderText = "",
+                Resizable = DataGridViewTriState.False });
+            _musicGrid.CellContentClick += MusicGridClick;
+            _musicGrid.SelectionChanged += (s, e) => UpdateMusicTransport();
+
+            _musicPlay = new Button { Location = new Point(14, 308), Size = new Size(70, 26), Text = "▶", Enabled = false };
+            _musicPlay.Click += (s, e) =>
+            {
+                var t = _musicGrid.CurrentRow?.Tag as MusicImport.Candidate;
+                if (t != null) PlayMusicRow(t);
+            };
+            _musicPlayStop = new Button { Location = new Point(90, 308), Size = new Size(70, 26), Text = "■", Enabled = false };
+            _musicPlayStop.Click += (s, e) => { _musicPreview?.Stop(); UpdateMusicTransport(); };
+            // AutoSize = false is load-bearing: a TrackBar ignores the height you give it and grows to
+            // 45px, which silently covered the status line underneath it.
+            _musicSeek = new TrackBar
+            {
+                AutoSize = false,
+                Location = new Point(166, 306), Size = new Size(330, 28),
+                Minimum = 0, Maximum = 1000, TickStyle = TickStyle.None, Enabled = false
+            };
+            _musicVolLbl = new Label { Location = new Point(506, 312), AutoSize = true, Text = "🔊", ForeColor = Color.DimGray };
+            _musicVol = new TrackBar
+            {
+                AutoSize = false,
+                Location = new Point(528, 306), Size = new Size(86, 28),
+                Minimum = 0, Maximum = 100, Value = 70, TickStyle = TickStyle.None
+            };
+            // Volume is remembered on the preview, so it survives switching tracks and is applied
+            // again whenever a new output device is opened.
+            _musicVol.ValueChanged += (s, e) =>
+            {
+                if (_musicPreview != null) _musicPreview.Volume = _musicVol.Value / 100.0;
+            };
+            _musicSeek.MouseDown += (s, e) => _musicSeeking = true;
+            _musicSeek.MouseUp += (s, e) =>
+            {
+                _musicSeeking = false;
+                if (_musicPreview != null && _musicPreview.Length > 0)
+                    _musicPreview.SeekTo(_musicPreview.Length * _musicSeek.Value / 1000.0);
+            };
+            _musicTime = new Label { Location = new Point(622, 312), Size = new Size(72, 18), ForeColor = Color.DimGray };
+
+            // A colour that is never explained is a puzzle. The legend flows left-to-right so the
+            // three entries stay side by side whatever their length in the current language.
+            _musicLegend = new FlowLayoutPanel
+            {
+                Location = new Point(12, 340), Size = new Size(684, 20),
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false
+            };
+            _musicLegendActive   = LegendDot(Color.FromArgb(22, 120, 52));
+            _musicLegendPending  = LegendDot(Color.Gray);
+            _musicLegendMismatch = LegendDot(Color.FromArgb(176, 108, 12));
+            _musicLegend.Controls.AddRange(new Control[] { _musicLegendActive, _musicLegendPending, _musicLegendMismatch });
+
+            _musicStatus = new Label
+            {
+                Location = new Point(14, 362), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.25f)
+            };
+
+            _musicTimer = new Timer { Interval = 200 };
+            _musicTimer.Tick += (s, e) => UpdateMusicTransport();
+            _musicTimer.Start();
+
+            _musicGroup.Controls.AddRange(new Control[] {
+                _musicIntro, _musicPickFolder, _musicPickZip, _musicRemove,
+                _musicGrid, _musicPlay, _musicPlayStop, _musicSeek,
+                _musicVolLbl, _musicVol, _musicTime, _musicLegend, _musicStatus });
+            tab.Controls.Add(_musicGroup);
+        }
+
+        /// <summary>
         /// The "Experimental" tab: a home for features that touch core game behaviour and may
         /// break saves / multiplayer. Framed in the Neuropa faction green. First resident is the
+
+        /// <summary>
+        /// Import ten user-supplied OGG files as Rimtech's soundtrack. Everything is confirmed before
+        /// anything is written: the mapping is shown, the files go in first, and only once they are
+        /// verified on disk does the exe get its 16-byte table edit. Failing halfway leaves the game
+        /// exactly as it was.
+        /// </summary>
+        void ImportMusic(bool fromZip)
+        {
+            var exe = _pathBox.Text.Trim();
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) return;
+
+            string source;
+            if (fromZip)
+            {
+                using (var d = new OpenFileDialog { Filter = "Zip|*.zip", CheckFileExists = true })
+                {
+                    if (d.ShowDialog(this) != DialogResult.OK) return;
+                    source = d.FileName;
+                }
+            }
+            else
+            {
+                using (var d = new FolderBrowserDialog())
+                {
+                    if (d.ShowDialog(this) != DialogResult.OK) return;
+                    source = d.SelectedPath;
+                }
+            }
+
+            var scan = MusicImport.Collect(source);
+            try
+            {
+                if (scan.Error != null)
+                {
+                    string msg = scan.Error == "music.err.wrongFormat"
+                        ? string.Format(Lang.T(scan.Error), scan.OtherFormats.Count)
+                        : scan.Error == "music.err.count"
+                            ? string.Format(Lang.T(scan.Error), scan.Tracks.Count)
+                            : Lang.T(scan.Error);
+                    MessageBox.Show(this, msg, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
+                MusicImport.Assign(scan.Tracks);
+
+                // Copy the files and stop. The table edit is applied by the Patch button along with
+                // everything else — this is the only sane place for it, because Apply rebuilds the
+                // exe from the clean backup and would otherwise throw a directly-written table away.
+                MusicImport.Install(exe, scan.Tracks, Log);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally
+            {
+                MusicImport.CleanTemp(scan);
+                Detect();
+                UpdateMusicState();   // the grid mirrors the disk, so refresh it here and not by luck
+            }
+        }
+
+        /// <summary>Write (or rewrite) the track-range table edit on top of whatever is patched now.</summary>
+        void ApplyMusicTablePatch(string exe)
+        {
+            var data = File.ReadAllBytes(exe);
+            foreach (var s in PatchData.RimtechMusicSites())
+            {
+                for (int i = 0; i < s.Patched.Length; i++) data[s.Offset + i] = s.Patched[i];
+            }
+            File.WriteAllBytes(exe, data);
+        }
+
+        /// <summary>One legend entry: a coloured bullet plus its caption, in the colour it explains.</summary>
+        static Label LegendDot(Color c) => new Label
+        {
+            AutoSize = true, ForeColor = c, Margin = new Padding(0, 2, 22, 0),
+            Font = new Font("Segoe UI", 8.25f)
+        };
+
+        /// <summary>Redraw the grid from what is actually on disk — the tab shows state, not a plan.</summary>
+        void FillMusicGrid()
+        {
+            if (_musicGrid == null) return;
+            var exe = _pathBox.Text.Trim();
+            _musicTracks = string.IsNullOrEmpty(exe) || !File.Exists(exe)
+                ? new System.Collections.Generic.List<MusicImport.Candidate>()
+                : MusicImport.LoadInstalled(exe);
+
+            int keep = _musicGrid.CurrentRow?.Index ?? -1;
+            _musicGrid.Rows.Clear();
+            foreach (var t in _musicTracks.OrderBy(x => x.Slot))
+            {
+                int i = _musicGrid.Rows.Add(
+                    string.Format("Track{0:00}", t.Slot), t.Name,
+                    FmtTime(t.SlotSeconds), FmtTime(t.Seconds),
+                    Lang.T(t.Confidence == MusicImport.Confidence.Exact ? "music.match.exact"
+                         : t.Confidence == MusicImport.Confidence.Duration ? "music.match.duration"
+                         : "music.match.uncertain"),
+                    null, null, null);
+                _musicGrid.Rows[i].Tag = t;
+
+                // Three readable states, so the list answers "what is going on" at a glance:
+                //   amber  — the length does not match this slot, worth a look
+                //   grey   — the files are here but the game is not using them yet
+                //   green  — in place and active
+                bool active = _lastInstalled != null && _lastInstalled.RimtechMusic;
+                _musicGrid.Rows[i].DefaultCellStyle.ForeColor =
+                    t.Confidence == MusicImport.Confidence.Uncertain ? Color.FromArgb(176, 108, 12)
+                  : active ? Color.FromArgb(22, 120, 52)
+                  : Color.Gray;
+            }
+            if (keep >= 0 && keep < _musicGrid.Rows.Count)
+                _musicGrid.CurrentCell = _musicGrid.Rows[keep].Cells[0];
+        }
+
+        static string FmtTime(double s) => string.Format("{0}:{1:00}", (int)(s / 60), (int)(s % 60));
+
+        void MusicGridClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var t = _musicGrid.Rows[e.RowIndex].Tag as MusicImport.Candidate;
+            if (t == null) return;
+
+            switch (_musicGrid.Columns[e.ColumnIndex].Name)
+            {
+                case "up":   MoveMusicRow(e.RowIndex, -1); break;
+                case "down": MoveMusicRow(e.RowIndex, +1); break;
+            }
+        }
+
+        /// <summary>
+        /// Swap two tracks' slots and move the files to match, then re-judge both against their new
+        /// reference length. Re-judging rather than flagging "changed" matters: swap a pair back and
+        /// the rows go black again, because the order really is the matched one once more.
+        /// </summary>
+        void MoveMusicRow(int row, int delta)
+        {
+            int other = row + delta;
+            if (other < 0 || other >= _musicGrid.Rows.Count) return;
+            var a = _musicGrid.Rows[row].Tag as MusicImport.Candidate;
+            var b = _musicGrid.Rows[other].Tag as MusicImport.Candidate;
+            if (a == null || b == null) return;
+
+            _musicPreview?.Stop();
+            int tmp = a.Slot; a.Slot = b.Slot; b.Slot = tmp;
+            try
+            {
+                MusicImport.Rearrange(_pathBox.Text.Trim(), _musicTracks, Log);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            FillMusicGrid();
+            UpdateMusicState();
+            if (other < _musicGrid.Rows.Count) _musicGrid.CurrentCell = _musicGrid.Rows[other].Cells[0];
+        }
+
+        void PlayMusicRow(MusicImport.Candidate t)
+        {
+            try
+            {
+                if (_musicPreview == null) _musicPreview = new MusicPreview(_pathBox.Text.Trim());
+                _musicPreview.Volume = _musicVol.Value / 100.0;
+                _musicPreview.Play(t.Path);
+            }
+            catch (Exception ex)
+            {
+                // A broken preview must never block the import — it is an aid, not a gate.
+                _musicTime.Text = "—";
+                Log("[dev] preview: " + ex.Message);
+            }
+            UpdateMusicTransport();
+        }
+
+        void UpdateMusicTransport()
+        {
+            if (_musicSeek == null) return;
+            bool on = _musicPreview != null && _musicPreview.IsPlaying;
+            // Play needs something to play: greyed out until a row is picked, so the button never
+            // looks available while it would do nothing.
+            _musicPlay.Enabled = _musicGrid.CurrentRow?.Tag is MusicImport.Candidate;
+            _musicPlayStop.Enabled = on;
+            _musicSeek.Enabled = on;
+            if (on && _musicPreview.Length > 0)
+            {
+                if (!_musicSeeking)
+                    _musicSeek.Value = Math.Max(0, Math.Min(1000,
+                        (int)(_musicPreview.Position / _musicPreview.Length * 1000)));
+                _musicTime.Text = FmtTime(_musicPreview.Position) + " / " + FmtTime(_musicPreview.Length);
+            }
+            else if (!on) _musicTime.Text = "";
+        }
+
+        /// <summary>Take the music back out: the table first, then the files it pointed at.</summary>
+        void RemoveMusic()
+        {
+            var exe = _pathBox.Text.Trim();
+            if (string.IsNullOrEmpty(exe) || !File.Exists(exe)) return;
+            try
+            {
+                // The preview keeps a file handle open; delete would fail on whatever is loaded and
+                // that track would quietly survive the removal.
+                _musicPreview?.Stop();
+
+                var data = File.ReadAllBytes(exe);
+                foreach (var s in PatchData.RimtechMusicSites())
+                    for (int i = 0; i < s.Original.Length; i++) data[s.Offset + i] = s.Original[i];
+                File.WriteAllBytes(exe, data);
+
+                System.Collections.Generic.List<string> failed;
+                int n = MusicImport.Remove(exe, out failed);
+                Log(string.Format("{0}  ({1})", Lang.T("music.remove"), n));
+
+                if (failed.Count > 0)
+                    MessageBox.Show(this, string.Format(Lang.T("music.err.locked"), string.Join(", ", failed)),
+                                    Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            finally { Detect(); UpdateMusicState(); }
+        }
+
+        /// <summary>Reflect what is installed right now: files present AND the table pointing at them.</summary>
+        void UpdateMusicState()
+        {
+            if (_musicStatus == null) return;
+            var path = _pathBox.Text.Trim();
+            bool haveFiles = !string.IsNullOrEmpty(path) && MusicImport.FilesPresent(path);
+            bool installed = haveFiles && _lastInstalled != null && _lastInstalled.RimtechMusic;
+
+            // Reconstruct the real arrangement, not just "something is there": if a file sits on a
+            // slot whose reference length it does not match, say so — that is exactly the failure
+            // this feature can have, and it is otherwise inaudible until you play as Rimtech.
+            int odd = 0;
+            if (haveFiles)
+                odd = MusicImport.LoadInstalled(path)
+                        .Count(t => t.Confidence == MusicImport.Confidence.Uncertain);
+
+            // Two independent facts, so say both. Which state the feature is in comes first — that is
+            // what the user came to find out — and a length mismatch is appended, not substituted.
+            // Reporting only the mismatch used to hide whether the exe was patched at all.
+            bool tablePatched = _lastInstalled != null && _lastInstalled.RimtechMusic;
+
+            string text;
+            Color colour;
+            if (installed)
+            { text = Lang.T("music.status.installed"); colour = Color.FromArgb(22, 120, 52); }
+            else if (tablePatched)
+            {
+                // The exe points at tracks 24–33 but they are not on disk. The game folds anything
+                // above the file count down by ten, so Rimtech would play Neuropa's music — worse
+                // than doing nothing, and completely silent about it. Say so plainly.
+                text = Lang.T("music.status.orphan"); colour = Color.FromArgb(192, 32, 32);
+            }
+            else if (haveFiles)
+            { text = Lang.T("music.status.ready");     colour = Color.FromArgb(176, 108, 12); }
+            else
+            { text = Lang.T("music.status.none");      colour = Color.DimGray; }
+
+            if (haveFiles && odd > 0)
+            {
+                text += "   " + string.Format(Lang.T("music.status.check"), odd);
+                colour = Color.FromArgb(176, 108, 12);
+            }
+            _musicStatus.Text = text;
+            _musicStatus.ForeColor = colour;
+
+            _musicRemove.Enabled = haveFiles;
+            FillMusicGrid();
+
+            bool canPatch = Patcher.HasValidBackup(path) || Patcher.LooksPristine(path);
+            _musicPickFolder.Enabled = _musicPickZip.Enabled = canPatch;
+        }
+
+        /// <summary>
         /// movement-speed multiplier (see PatchData.MoveSpeedSites).
         /// </summary>
         void BuildExperimentalTab(TabPage tab)
@@ -871,15 +1303,24 @@ namespace MetalFatiguePatcher
             _banner = new Panel { Location = new Point(0, 0), Size = new Size(ClientSize.Width, 116) };
             _banner.Paint += (s, e) =>
             {
+                // One faction per tab, sampled from the game's own faction art and darkened by a
+                // uniform 0.48 — the mascots are bright metallic, so a darker banner is what makes
+                // them read. The old orange Cheats banner was the worst of the lot at 1.9:1 contrast
+                // against its (already red) mascot; Mil-Agro red brings that to 5.7:1.
+                // Violet is deliberately NOT a faction colour: the music tab is a general import, not
+                // a Rimtech feature, and Rimtech blue would also sit too close to the Patch tab.
+                // Keep in step with BannerAccent-style values documented in research-notes.
                 Color top, bot, line;
                 switch (_bannerTheme)
                 {
-                    case BannerTheme.Cheats:   // orange
-                        top = Color.FromArgb(120, 62, 8); bot = Color.FromArgb(206, 126, 22); line = Color.FromArgb(250, 196, 80); break;
-                    case BannerTheme.Experimental:   // Neuropa faction green (sampled from storyneuropa.JPG: #3AB451)
-                        top = Color.FromArgb(12, 52, 28); bot = Color.FromArgb(40, 132, 70); line = Color.FromArgb(58, 180, 81); break;
-                    default:                   // blue
-                        top = Color.FromArgb(24, 34, 54); bot = Color.FromArgb(44, 62, 96); line = Color.FromArgb(80, 110, 160); break;
+                    case BannerTheme.Cheats:         // Mil-Agro red   #D43923 x0.48
+                        top = Color.FromArgb(34, 9, 5); bot = Color.FromArgb(101, 27, 16); line = Color.FromArgb(151, 40, 24); break;
+                    case BannerTheme.Experimental:   // Neuropa green  #227F15 x0.48
+                        top = Color.FromArgb(5, 20, 3); bot = Color.FromArgb(16, 60, 10); line = Color.FromArgb(24, 89, 14); break;
+                    case BannerTheme.Music:          // neutral violet #3E1580 x0.48
+                        top = Color.FromArgb(9, 3, 20); bot = Color.FromArgb(29, 10, 61); line = Color.FromArgb(43, 14, 91); break;
+                    default:                         // Rimtech blue   #004FD4 x0.48
+                        top = Color.FromArgb(0, 12, 34); bot = Color.FromArgb(0, 37, 101); line = Color.FromArgb(0, 55, 151); break;
                 }
                 using (var b = new LinearGradientBrush(_banner.ClientRectangle, top, bot, 90f))
                     e.Graphics.FillRectangle(b, _banner.ClientRectangle);
@@ -977,6 +1418,8 @@ namespace MetalFatiguePatcher
                     subKey = "banner.cheatSub"; subColor = Color.FromArgb(255, 236, 190); break;
                 case BannerTheme.Experimental:
                     subKey = "banner.expSub";   subColor = Color.FromArgb(205, 245, 214); break;
+                case BannerTheme.Music:
+                    subKey = "banner.musicSub"; subColor = Color.FromArgb(214, 200, 245); break;
                 default:
                     subKey = "banner.sub";      subColor = Color.FromArgb(185, 200, 225); break;
             }
@@ -1036,6 +1479,10 @@ namespace MetalFatiguePatcher
                     if (_logoExperimental != null) return _logoExperimental;
                     Log("[dev] logo_experimental.png is missing — showing placeholder mascot.");
                     return _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
+                case BannerTheme.Music:
+                    if (_logoMusic != null) return _logoMusic;
+                    Log("[dev] logo_music.png is missing — showing placeholder mascot.");
+                    return _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
                 default:
                     return _logo;
             }
@@ -1049,6 +1496,7 @@ namespace MetalFatiguePatcher
             _bannerTitle.Text    = Lang.T("banner.title");
             _bannerSub.Text      = Lang.T(_bannerTheme == BannerTheme.Cheats       ? "banner.cheatSub"
                                         : _bannerTheme == BannerTheme.Experimental ? "banner.expSub"
+                                        : _bannerTheme == BannerTheme.Music        ? "banner.musicSub"
                                         :                                            "banner.sub");
             _srcGroup.Text       = Lang.T("grp.source");
             _srcAuto.Text        = Lang.T("src.auto");
@@ -1078,11 +1526,25 @@ namespace MetalFatiguePatcher
                 _tabPatch.Text        = Lang.T("tab.patch");
                 _tabCheats.Text       = Lang.T("tab.cheats");
                 _tabExperimental.Text = Lang.T("tab.experimental");
+                _tabMusic.Text        = Lang.T("tab.music");
                 _expWarnGroup.Text    = Lang.T("grp.expwarn");
                 _expWarn.Text         = Lang.T("exp.warning");
                 _expSoonGroup.Text    = Lang.T("grp.expsoon");
                 _expSoon.Text         = Lang.T("exp.soon");
                 _expSpeedGroup.Text   = Lang.T("grp.expspeed");
+                _musicGroup.Text      = Lang.T("tab.music");
+                _musicIntro.Text      = Lang.T("music.intro");
+                _musicPickFolder.Text = Lang.T("music.pickFolder");
+                _musicPickZip.Text    = Lang.T("music.pickZip");
+                _musicRemove.Text     = Lang.T("music.remove");
+                _musicLegendActive.Text   = "● " + Lang.T("music.legend.active");
+                _musicLegendPending.Text  = "● " + Lang.T("music.legend.pending");
+                _musicLegendMismatch.Text = "● " + Lang.T("music.legend.mismatch");
+                _musicGrid.Columns["slot"].HeaderText  = Lang.T("music.dlg.slot");
+                _musicGrid.Columns["file"].HeaderText  = Lang.T("music.dlg.file");
+                _musicGrid.Columns["exp"].HeaderText   = Lang.T("music.dlg.expected");
+                _musicGrid.Columns["act"].HeaderText   = Lang.T("music.dlg.actual");
+                _musicGrid.Columns["match"].HeaderText = Lang.T("music.dlg.match");
                 _expSpeed.Text        = Lang.T("exp.speed");
                 _expSpeedFactorLbl.Text = Lang.T("exp.speed.factor");
                 _expSpeedForLbl.Text  = Lang.T("unlock.for");
@@ -1383,6 +1845,14 @@ namespace MetalFatiguePatcher
             extras.AddRange(PatchData.PartsUnlockSites(GatherUnlockAddrs(), _partsScopeAll.Checked));
             if (_expSpeed.Checked)
                 extras.AddRange(PatchData.MoveSpeedSites(SpeedFactor, _expSpeedAll.Checked));
+
+            // Imported music has to ride along with every patch. Apply always rebuilds from the clean
+            // backup, so leaving it out would silently drop the table edit while the files stayed on
+            // disk — and Rimtech would then play Neuropa's tracks. Keyed on the files being present,
+            // never on a checkbox: the table is only ever valid together with them.
+            if (MusicImport.FilesPresent(_pathBox.Text.Trim()))
+                extras.AddRange(PatchData.RimtechMusicSites());
+
             return extras;
         }
 
@@ -1471,6 +1941,7 @@ namespace MetalFatiguePatcher
             _expSpeedPlayer.Checked    = !inst.MoveSpeedScopeAll;
             SetSpeedFactor(inst.MoveSpeed ? inst.MoveSpeedFactor : 2.0);
             UpdateSpeedEnabled();
+            UpdateMusicState();
 
             // Restore the part/superweapon selection from the unlocked descriptor addresses.
             var set = new System.Collections.Generic.HashSet<uint>(inst.UnlockedAddrs);

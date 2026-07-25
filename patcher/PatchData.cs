@@ -688,8 +688,47 @@ namespace MetalFatiguePatcher
 
         /// <summary>What cheats / part unlocks a patched exe currently carries. Read back purely
         /// from the bytes so the UI can restore every setting on load and never silently drop one.</summary>
+        // --- Rimtech music: give it a track range of its own ---------------------------------------
+        // Metal Fatigue shipped on two CDs — CD 1 carried Rimtech's music, CD 2 Mil-Agro's and
+        // Neuropa's. The game never told them apart in code: it asked the drive for a track NUMBER,
+        // and the disc in the tray decided whose music that was. The re-release ships only CD 2's
+        // audio (MUSIC\Track02..23.ogg, played by the ogg-winmm shim in _inmm.dll), so Rimtech asks
+        // for the same numbers as Mil-Agro and gets Mil-Agro's music.
+        //
+        // The per-faction ranges are a table of {firstTrack, lastTrack} pairs at 0x50bfa0, picked by
+        // CSoundSystem at 0x433d0c:
+        //     [0]  3..7   Rimtech  quiet     [1]  8..12  Rimtech  action
+        //     [2]  3..7   Mil-Agro quiet     [3]  8..12  Mil-Agro action
+        //     [4] 13..17  Neuropa  quiet     [5] 18..22  Neuropa  action
+        // Entries 0/1 are byte-identical to 2/3 — that duplication IS the bug. Pointing Rimtech at a
+        // fresh range and supplying CD 1's music as Track24..33 fixes it; confirmed in-game, the
+        // game then requests 24..33 and plays Rimtech's own music.
+        //
+        // NEVER write this without the files in place: the picker folds any track above the number of
+        // files present down by ten (sub edx,0xa at 0x433d4e), so a bare table patch would land
+        // Rimtech on 14..23 and play Neuropa's music — different, but no less wrong.
+        const long MUSIC_TABLE = 0x10bfa0;
+        public const int MusicFirstSlot = 24;
+        public const int MusicSlotCount = 10;   // 5 quiet + 5 action, in that order
+
+        public static List<PatchSite> RimtechMusicSites() => new List<PatchSite>
+        {
+            new PatchSite
+            {
+                Name     = "rimtech_music_range",
+                Offset   = MUSIC_TABLE,
+                Original = H("0300000007000000" + "080000000c000000"),   // {3,7} {8,12}
+                Patched  = H("180000001c000000" + "1d00000021000000"),   // {24,28} {29,33}
+            },
+        };
+
+        /// <summary>True if the exe already points Rimtech at the separate track range.</summary>
+        public static bool HasRimtechMusic(byte[] d) =>
+            Has(d, MUSIC_TABLE, "180000001c0000001d00000021000000");
+
         public sealed class Installed
         {
+            public bool RimtechMusic;
             public bool Fog, FreeBuild, Turbo, Crews;
             public bool CheatScopeAll;                 // player vs all for free-build / instant-build
             public bool PartsUnlock, PartsScopeAll;
@@ -698,13 +737,14 @@ namespace MetalFatiguePatcher
             public double MoveSpeedFactor;
         }
 
-        static bool Has(byte[] d, long off, string hex)
+        static bool Has(byte[] d, long off, byte[] b)
         {
-            var b = H(hex);
             if (off < 0 || off + b.Length > d.LongLength) return false;
             for (int i = 0; i < b.Length; i++) if (d[off + i] != b[i]) return false;
             return true;
         }
+
+        static bool Has(byte[] d, long off, string hex) => Has(d, off, H(hex));
 
         static uint U32(byte[] d, long off) =>
             (uint)(d[off] | (d[off + 1] << 8) | (d[off + 2] << 16) | (d[off + 3] << 24));
@@ -713,19 +753,24 @@ namespace MetalFatiguePatcher
         {
             var r = new Installed();
 
-            r.Fog = Has(d, 0x7c70, "e98ba00c00");                          // fog redirect (both scopes)
-            // free building: all = stub at 0x7a350, player = hook there
-            bool fbAll = Has(d, 0x7a350, "b801000000c20400");
-            bool fbPlayer = Has(d, 0x7a350, "e9eb79050090");
+            // The player-only variants are recognised by their hook, whose rel32 depends on where the
+            // cave sits — so derive it with HookJmp rather than hard-coding the bytes. Hard-coded ones
+            // silently stopped matching when the cave zone was repacked, which left the checkboxes
+            // blank for an exe that was in fact patched.
+            r.Fog = Has(d, FOG_HOOK, HookJmp(FOG_HOOK, FOG_CAVE, 5));      // fog redirect (both scopes)
+            // free building: all = stub at the gate, player = hook there
+            bool fbAll = Has(d, MJ_HOOK, "b801000000c20400");
+            bool fbPlayer = Has(d, MJ_HOOK, HookJmp(MJ_HOOK, MJ_CAVE, 6));
             r.FreeBuild = fbAll || fbPlayer;
             // instant build: all = fld1 stub, player = hook
-            bool tbAll = Has(d, 0xa7220, "d9e8c20400");
-            bool tbPlayer = Has(d, 0xa7220, "e97bab020090");
+            bool tbAll = Has(d, BT_HOOK, "d9e8c20400");
+            bool tbPlayer = Has(d, BT_HOOK, HookJmp(BT_HOOK, BT_CAVE, 6));
             r.Turbo = tbAll || tbPlayer;
             // scope is shared by the two; read it from whichever is present
             r.CheatScopeAll = fbAll || (tbAll && !fbPlayer);
 
             r.Crews = Has(d, 0x7c220, "b863000000c20400");
+            r.RimtechMusic = HasRimtechMusic(d);
 
             // parts unlock: hook present at the gate, then read the cave's address table
             if (d.LongLength > GATE_HOOK && d[GATE_HOOK] == 0xE9)

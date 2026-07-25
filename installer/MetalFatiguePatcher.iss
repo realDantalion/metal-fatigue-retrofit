@@ -28,7 +28,10 @@ WizardStyle=modern
 ; GPL-3.0 must be conveyed with the program - show it during setup and install a copy.
 LicenseFile=..\LICENSE
 PrivilegesRequired=admin
-ArchitecturesInstallIn64BitMode=x64
+; No ArchitecturesInstallIn64BitMode: the patcher is a 32-bit binary (it drives a 32-bit game and,
+; since 1.3.0, decodes OGG through the game's own 32-bit libvorbisfile.dll), so it belongs in
+; Program Files (x86). Up to 1.2.0 setup ran in 64-bit mode and installed to Program Files — an
+; upgrade would therefore leave a second copy behind, which the [Code] section removes explicitly.
 ; Pick the language from the user's Windows settings; only ask if there's no match.
 ShowLanguageDialog=auto
 
@@ -97,10 +100,59 @@ Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}
 // Byte size of the supported MFatigue.exe build — used to sanity-check the backup.
 const
   ExpectedSize = 1191989;
+  UninstallKey = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{961E0AA8-5237-4555-A0B8-93E7658E2BC7}_is1';
 
 function MarkerFile(): string;
 begin
   Result := ExpandConstant('{commonappdata}') + '\MetalFatiguePatcher\lastgame.txt';
+end;
+
+// Locate an earlier install's uninstaller. Up to 1.2.0 setup ran in 64-bit mode, so its entry sits
+// in the 64-bit registry view; this setup runs 32-bit and would never see it by default. Check both.
+function PreviousUninstaller(): string;
+var
+  s: string;
+begin
+  Result := '';
+  // Nested rather than "IsWin64 and RegQuery...": HKLM64 must not be touched at all on 32-bit
+  // Windows, and relying on short-circuit evaluation here is not worth the risk.
+  if IsWin64 then
+  begin
+    if RegQueryStringValue(HKLM64, UninstallKey, 'UninstallString', s) then
+    begin
+      Result := RemoveQuotes(s);
+      Exit;
+    end;
+  end;
+  if RegQueryStringValue(HKLM32, UninstallKey, 'UninstallString', s) then
+    Result := RemoveQuotes(s);
+end;
+
+// Remove an older install before laying down this one, so the move from Program Files to
+// Program Files (x86) does not leave a second copy and a stale Start-menu entry behind.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  un, marker, parked: string;
+  code: Integer;
+begin
+  if CurStep <> ssInstall then Exit;
+
+  un := PreviousUninstaller();
+  if un = '' then Exit;
+
+  // The old uninstaller OFFERS TO RESTORE the game's original exe. Run silently it takes the default
+  // answer and would quietly undo the user's patch — during what is merely an upgrade. That offer is
+  // keyed on the marker file, so park the marker for the duration and put it back afterwards. This
+  // needs no cooperation from the old uninstaller, which is already shipped and cannot be changed.
+  marker := MarkerFile();
+  parked := marker + '.upgrade';
+  if FileExists(marker) then
+    RenameFile(marker, parked);
+
+  Exec(un, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-', '', SW_HIDE, ewWaitUntilTerminated, code);
+
+  if FileExists(parked) then
+    RenameFile(parked, marker);
 end;
 
 // On uninstall, offer to restore the patched game to its original state.

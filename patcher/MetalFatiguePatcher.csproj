@@ -8,12 +8,17 @@
     <AssemblyName>MetalFatigueRetrofitPatcher</AssemblyName>
     <RootNamespace>MetalFatiguePatcher</RootNamespace>
     <Product>Metal Fatigue Retrofit</Product>
-    <Version>1.2.0</Version>
+    <Version>1.3.0</Version>
     <Authors>Dantalion</Authors>
     <Company>Dantalion</Company>
     <Copyright>Copyright (C) 2026 Dantalion (github.com/realDantalion) — GNU GPL v3</Copyright>
     <Description>Community patch for Metal Fatigue (2000): lifts the memory-based unit limit and the crew-name limit.</Description>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <!-- x86 on purpose. The music preview decodes OGG through the game's own libvorbisfile.dll, and
+         that is a 32-bit library — an AnyCPU build runs 64-bit on any modern Windows and cannot load
+         it at all. Nothing else here needs 64 bits, .NET Framework 4.8 x86 ships with Win10/11, and
+         GameFinder already queries both registry views explicitly, so auto-detection is unaffected. -->
+    <PlatformTarget>x86</PlatformTarget>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <Nullable>disable</Nullable>

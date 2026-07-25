@@ -1032,6 +1032,150 @@ namespace MetalFatiguePatcher
                 "{0}×: 호버트럭 28 → {1}, HTH 다리 콤봇 15.5 → {2}.",
                 "{0}× 时：气垫卡车 28 → {1}，装 HTH 腿部的 Combot 15.5 → {2}。",
                 "При {0}×: ховертрак 28 → {1}, комбот с ногами HTH 15.5 → {2}." } },
+            { "btn.ok", new[]{
+                "OK", "OK", "Aceptar", "OK", "OK", "OK", "OK", "확인", "确定", "ОК" } },
+            { "btn.cancel", new[]{
+                "Cancel", "Abbrechen", "Cancelar", "Cancelar", "Annulla", "Annuler", "キャンセル", "취소", "取消", "Отмена" } },
+
+            // --- Music tab: restore Rimtech's missing CD 1 soundtrack -----------------------------
+            { "tab.music", new[]{
+                "Music", "Musik", "Música", "Música", "Musica", "Musique", "音楽", "음악", "音乐", "Музыка" } },
+            { "banner.musicSub", new[]{
+                "Bring back Rimtech's missing soundtrack",
+                "Rimtechs fehlenden Soundtrack zurückholen",
+                "Recupera la banda sonora perdida de Rimtech",
+                "Traga de volta a trilha sonora perdida da Rimtech",
+                "Riporta la colonna sonora mancante di Rimtech",
+                "Récupérez la bande-son manquante de Rimtech",
+                "Rimtech の失われたサウンドトラックを復活",
+                "Rimtech의 사라진 사운드트랙 되살리기",
+                "找回 Rimtech 缺失的原声音乐",
+                "Верните утраченный саундтрек Rimtech" } },
+            { "music.intro", new[]{
+                "Rimtech's music was on CD 1 and is missing from the re-release, so Rimtech plays Mil-Agro's tracks. The patch gives Rimtech track numbers of its own and copies your files into them. It ships no game audio — supply the ten tracks yourself, as OGG Vorbis, ideally in CD order. File names do not matter.",
+                "Rimtechs Musik lag auf CD 1 und fehlt im Re-Release, deshalb spielt Rimtech die Stücke von Mil-Agro. Der Patch gibt Rimtech eigene Tracknummern und legt deine Dateien dort ab. Spielmusik liefert er keine mit — die zehn Titel bringst du selbst mit, als OGG Vorbis, möglichst in CD-Reihenfolge. Dateinamen sind egal.",
+                "La música de Rimtech estaba en el CD 1 y falta en la reedición, así que Rimtech suena con los temas de Mil-Agro. El parche da a Rimtech números de pista propios y copia ahí tus archivos. No incluye audio del juego: aporta tú las diez pistas, en OGG Vorbis y a ser posible en el orden del CD. Los nombres dan igual.",
+                "A música da Rimtech estava no CD 1 e falta no relançamento, então a Rimtech toca as faixas da Mil-Agro. O patch dá à Rimtech números de faixa próprios e copia seus arquivos para lá. Não traz áudio do jogo — forneça você as dez faixas, em OGG Vorbis e de preferência na ordem do CD. Os nomes não importam.",
+                "La musica della Rimtech era sul CD 1 e manca nella riedizione, così la Rimtech suona i brani della Mil-Agro. La patch assegna alla Rimtech numeri di traccia propri e vi copia i tuoi file. Non include audio del gioco: le dieci tracce portale tu, in OGG Vorbis e possibilmente nell'ordine del CD. I nomi non contano.",
+                "La musique de Rimtech était sur le CD 1 et manque à la réédition : Rimtech joue donc les morceaux de Mil-Agro. Le patch attribue à Rimtech ses propres numéros de piste et y copie vos fichiers. Il ne fournit aucun audio du jeu — apportez les dix pistes vous-même, en OGG Vorbis et si possible dans l'ordre du CD. Les noms importent peu.",
+                "Rimtech の音楽は CD 1 にあり、リマスター版には含まれていないため Mil-Agro の曲が流れます。このパッチは Rimtech 専用のトラック番号を割り当て、そこへあなたのファイルを配置します。ゲーム音源は同梱しません。10 曲はご自身でご用意ください（OGG Vorbis 形式、できれば CD の並び順で）。ファイル名は問いません。",
+                "Rimtech의 음악은 CD 1에 있었고 재출시판에는 없어 Mil-Agro의 곡이 재생됩니다. 이 패치는 Rimtech에 전용 트랙 번호를 부여하고 그 자리에 파일을 복사합니다. 게임 오디오는 포함하지 않습니다 — 10개 트랙을 직접 준비해 주세요(OGG Vorbis, 가능하면 CD 순서대로). 파일 이름은 상관없습니다.",
+                "Rimtech 的音乐在 CD 1 上，重制版未收录，因此播放的是 Mil-Agro 的曲目。本补丁为 Rimtech 分配专属的曲目编号，并把你的文件放到那里。它不附带游戏音频 — 十首曲子请自行准备，需为 OGG Vorbis，最好保持光盘顺序。文件名无所谓。",
+                "Музыка Rimtech была на CD 1 и в переиздание не попала, поэтому играют треки Mil-Agro. Патч выделяет Rimtech собственные номера треков и копирует туда ваши файлы. Игрового аудио он не содержит — десять треков принесите свои, в формате OGG Vorbis и желательно в порядке диска. Имена файлов не важны." } },
+            { "music.pickFolder", new[]{
+                "Choose folder…", "Ordner wählen…", "Elegir carpeta…", "Escolher pasta…", "Scegli cartella…", "Choisir un dossier…", "フォルダーを選択…", "폴더 선택…", "选择文件夹…", "Выбрать папку…" } },
+            { "music.pickZip", new[]{
+                "Choose zip…", "Zip wählen…", "Elegir zip…", "Escolher zip…", "Scegli zip…", "Choisir un zip…", "ZIP を選択…", "ZIP 선택…", "选择 ZIP…", "Выбрать ZIP…" } },
+            { "music.remove", new[]{
+                "Remove imported music", "Importierte Musik entfernen", "Quitar la música importada", "Remover a música importada", "Rimuovi la musica importata", "Retirer la musique importée", "取り込んだ音楽を削除", "가져온 음악 제거", "移除已导入的音乐", "Удалить импортированную музыку" } },
+            { "music.status.installed", new[]{
+                "Rimtech music is installed.", "Rimtech-Musik ist installiert.", "La música de Rimtech está instalada.", "A música da Rimtech está instalada.", "La musica Rimtech è installata.", "La musique Rimtech est installée.", "Rimtech の音楽が導入済みです。", "Rimtech 음악이 설치되어 있습니다.", "Rimtech 音乐已安装。", "Музыка Rimtech установлена." } },
+            { "music.status.none", new[]{
+                "No Rimtech music installed yet.", "Noch keine Rimtech-Musik installiert.", "Aún no hay música de Rimtech instalada.", "Ainda sem música da Rimtech instalada.", "Nessuna musica Rimtech installata.", "Aucune musique Rimtech installée.", "Rimtech の音楽は未導入です。", "아직 Rimtech 음악이 없습니다.", "尚未安装 Rimtech 音乐。", "Музыка Rimtech ещё не установлена." } },
+            { "music.review", new[]{
+                "Check order…", "Reihenfolge prüfen…", "Comprobar orden…", "Conferir ordem…", "Controlla ordine…", "Vérifier l'ordre…", "順番を確認…", "순서 확인…", "检查顺序…", "Проверить порядок…" } },
+            { "music.status.ready", new[]{
+                "Tracks are in place — press Patch to activate them.",
+                "Titel liegen bereit — zum Aktivieren auf Patch drücken.",
+                "Las pistas están listas: pulsa Parchear para activarlas.",
+                "As faixas estão prontas — clique em Aplicar para ativá-las.",
+                "I brani sono pronti: premi Applica per attivarli.",
+                "Les pistes sont en place — cliquez sur Patcher pour les activer.",
+                "曲の配置が完了しました — 有効にするにはパッチを実行してください。",
+                "트랙이 준비되었습니다 — 활성화하려면 패치를 누르세요.",
+                "曲目已就位 — 点击打补丁以启用。",
+                "Треки на месте — нажмите «Патч», чтобы их включить." } },
+            { "music.status.check", new[]{
+                "{0} track(s) do not match their slot's length.",
+                "Bei {0} Titel(n) passt die Länge nicht zum Platz.",
+                "{0} pista(s) no coinciden con la duración de su posición.",
+                "{0} faixa(s) não batem com a duração da posição.",
+                "{0} brano/i non corrispondono alla durata della posizione.",
+                "{0} piste(s) ne correspondent pas à la durée de leur emplacement.",
+                "{0} 曲が枠の長さと一致しません。",
+                "{0}개 트랙의 길이가 자리와 맞지 않습니다.",
+                "有 {0} 首曲目与其位置的时长不符。",
+                "{0} трек(ов) не совпадают с длительностью слота." } },
+            { "music.status.orphan", new[]{
+                "The game is set to play imported music, but the files are gone — import them again, or press Patch to undo it.",
+                "Das Spiel ist auf importierte Musik eingestellt, die Dateien fehlen aber — erneut importieren oder mit Patch rückgängig machen.",
+                "El juego está configurado para la música importada, pero los archivos no están: vuelve a importarlos o pulsa Parchear para deshacerlo.",
+                "O jogo está configurado para a música importada, mas os arquivos sumiram — importe de novo ou clique em Aplicar para desfazer.",
+                "Il gioco è impostato sulla musica importata, ma i file non ci sono: reimportali o premi Applica per annullare.",
+                "Le jeu est réglé sur la musique importée, mais les fichiers ont disparu — réimportez-les ou cliquez sur Patcher pour annuler.",
+                "取り込んだ音楽を再生する設定ですが、ファイルがありません。取り込み直すか、パッチで元に戻してください。",
+                "가져온 음악을 재생하도록 설정되어 있지만 파일이 없습니다 — 다시 가져오거나 패치로 되돌리세요.",
+                "游戏已设置为播放导入的音乐，但文件不见了 — 请重新导入，或点击打补丁撤销。",
+                "Игра настроена на импортированную музыку, но файлов нет — импортируйте заново или нажмите «Патч», чтобы отменить." } },
+            { "music.err.noSource", new[]{
+                "That folder or file could not be opened.", "Dieser Ordner bzw. diese Datei ließ sich nicht öffnen.", "No se pudo abrir esa carpeta o archivo.", "Não foi possível abrir essa pasta ou arquivo.", "Impossibile aprire quella cartella o quel file.", "Ce dossier ou fichier n'a pas pu être ouvert.", "そのフォルダーまたはファイルを開けませんでした。", "해당 폴더 또는 파일을 열 수 없습니다.", "无法打开该文件夹或文件。", "Не удалось открыть эту папку или файл." } },
+            { "music.err.read", new[]{
+                "The files could not be read.", "Die Dateien ließen sich nicht lesen.", "No se pudieron leer los archivos.", "Não foi possível ler os arquivos.", "Impossibile leggere i file.", "Les fichiers n'ont pas pu être lus.", "ファイルを読み取れませんでした。", "파일을 읽을 수 없습니다.", "无法读取这些文件。", "Не удалось прочитать файлы." } },
+            { "music.err.noOgg", new[]{
+                "No OGG files in there.", "Dort sind keine OGG-Dateien.", "Ahí no hay archivos OGG.", "Não há arquivos OGG aí.", "Nessun file OGG lì dentro.", "Aucun fichier OGG là-dedans.", "OGG ファイルが見つかりません。", "OGG 파일이 없습니다.", "其中没有 OGG 文件。", "Там нет файлов OGG." } },
+            { "music.err.wrongFormat", new[]{
+                "Found {0} audio files, but no OGG. Metal Fatigue reads its music only as OGG Vorbis — that is built into the game's audio layer and cannot be changed. Convert your files to OGG with any free converter and import them again. Keeping their original order helps; the names do not matter.",
+                "{0} Audiodateien gefunden, aber keine OGG. Metal Fatigue liest Musik ausschließlich als OGG Vorbis — das steckt in der Audioschicht des Spiels und lässt sich nicht ändern. Wandle die Dateien mit einem beliebigen kostenlosen Konverter in OGG um und importiere sie erneut. Die ursprüngliche Reihenfolge beizubehalten hilft; die Namen sind egal.",
+                "Se encontraron {0} archivos de audio, pero ningún OGG. Metal Fatigue solo lee música en OGG Vorbis: está integrado en la capa de audio del juego y no se puede cambiar. Convierte tus archivos a OGG con cualquier conversor gratuito e impórtalos de nuevo. Mantén el orden original; los nombres dan igual.",
+                "Encontrados {0} arquivos de áudio, mas nenhum OGG. O Metal Fatigue lê música apenas em OGG Vorbis — isso está embutido na camada de áudio do jogo e não pode ser mudado. Converta seus arquivos para OGG com qualquer conversor gratuito e importe novamente. Mantenha a ordem original; os nomes não importam.",
+                "Trovati {0} file audio, ma nessun OGG. Metal Fatigue legge la musica solo come OGG Vorbis: è integrato nel livello audio del gioco e non è modificabile. Converti i file in OGG con un qualsiasi convertitore gratuito e reimportali. Mantieni l'ordine originale; i nomi non contano.",
+                "{0} fichiers audio trouvés, mais aucun OGG. Metal Fatigue ne lit sa musique qu'en OGG Vorbis — c'est intégré à la couche audio du jeu et non modifiable. Convertissez vos fichiers en OGG avec n'importe quel convertisseur gratuit, puis réimportez-les. Conservez l'ordre d'origine ; les noms importent peu.",
+                "音声ファイルを {0} 件見つけましたが、OGG がありません。Metal Fatigue は音楽を OGG Vorbis でしか読み込めません（ゲームの音声処理に組み込まれており変更できません）。無料の変換ソフトで OGG に変換して取り込み直してください。元の順番は保ってください。名前は問いません。",
+                "오디오 파일 {0}개를 찾았지만 OGG가 없습니다. Metal Fatigue는 음악을 OGG Vorbis로만 읽습니다 — 게임의 오디오 계층에 내장되어 있어 바꿀 수 없습니다. 무료 변환 프로그램으로 OGG로 변환한 뒤 다시 가져오세요. 원래 순서는 유지하세요. 이름은 상관없습니다.",
+                "找到 {0} 个音频文件，但没有 OGG。Metal Fatigue 只能读取 OGG Vorbis 格式的音乐 — 这内建于游戏的音频层，无法更改。请用任意免费转换工具转成 OGG 后重新导入。请保持原有顺序；文件名无所谓。",
+                "Найдено аудиофайлов: {0}, но ни одного OGG. Metal Fatigue читает музыку только в формате OGG Vorbis — это заложено в аудиослое игры и не меняется. Преобразуйте файлы в OGG любым бесплатным конвертером и импортируйте снова. Сохраните исходный порядок; имена не важны." } },
+            { "music.err.count", new[]{
+                "Expected exactly 10 OGG files, found {0}.", "Erwartet werden genau 10 OGG-Dateien, gefunden wurden {0}.", "Se esperaban exactamente 10 archivos OGG, se encontraron {0}.", "Esperados exatamente 10 arquivos OGG, encontrados {0}.", "Attesi esattamente 10 file OGG, trovati {0}.", "Exactement 10 fichiers OGG sont attendus, {0} trouvés.", "OGG ファイルはちょうど 10 件必要ですが、{0} 件でした。", "OGG 파일이 정확히 10개여야 하는데 {0}개입니다.", "需要正好 10 个 OGG 文件，实际找到 {0} 个。", "Нужно ровно 10 файлов OGG, найдено {0}." } },
+            { "music.legend.active", new[]{
+                "in use by the game", "wird vom Spiel benutzt", "en uso por el juego", "em uso pelo jogo", "in uso dal gioco", "utilisé par le jeu", "ゲームで使用中", "게임에서 사용 중", "游戏正在使用", "используется игрой" } },
+            { "music.legend.pending", new[]{
+                "copied, not patched yet", "kopiert, noch nicht gepatcht", "copiado, aún sin parchear", "copiado, ainda não aplicado", "copiato, non ancora applicato", "copié, pas encore patché", "コピー済み・未パッチ", "복사됨, 아직 패치 안 함", "已复制，尚未打补丁", "скопировано, ещё не пропатчено" } },
+            { "music.legend.mismatch", new[]{
+                "length does not fit this slot", "Länge passt nicht zum Platz", "la duración no encaja aquí", "a duração não bate com a posição", "la durata non corrisponde", "la durée ne correspond pas", "長さが枠と合わない", "길이가 자리와 맞지 않음", "时长与位置不符", "длительность не подходит" } },
+            { "music.err.locked", new[]{
+                "These files are in use and could not be deleted: {0}. Close the game and try again.",
+                "Diese Dateien sind in Benutzung und ließen sich nicht löschen: {0}. Schließe das Spiel und versuche es erneut.",
+                "Estos archivos están en uso y no se pudieron borrar: {0}. Cierra el juego e inténtalo de nuevo.",
+                "Estes arquivos estão em uso e não puderam ser excluídos: {0}. Feche o jogo e tente de novo.",
+                "Questi file sono in uso e non è stato possibile eliminarli: {0}. Chiudi il gioco e riprova.",
+                "Ces fichiers sont utilisés et n'ont pas pu être supprimés : {0}. Fermez le jeu et réessayez.",
+                "次のファイルは使用中のため削除できませんでした: {0}。ゲームを終了してからもう一度お試しください。",
+                "다음 파일이 사용 중이라 삭제하지 못했습니다: {0}. 게임을 종료한 뒤 다시 시도하세요.",
+                "以下文件正在使用中，无法删除：{0}。请关闭游戏后重试。",
+                "Эти файлы заняты и не были удалены: {0}. Закройте игру и повторите попытку." } },
+            { "music.err.verify", new[]{
+                "{0} did not copy correctly.", "{0} wurde nicht korrekt kopiert.", "{0} no se copió correctamente.", "{0} não foi copiado corretamente.", "{0} non è stato copiato correttamente.", "{0} n'a pas été copié correctement.", "{0} を正しくコピーできませんでした。", "{0} 을(를) 올바르게 복사하지 못했습니다.", "{0} 未能正确复制。", "{0} скопирован некорректно." } },
+            { "music.log.copied", new[]{
+                "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}", "  {0}  ←  {1}" } },
+            { "music.dlg.title", new[]{
+                "Check the order", "Reihenfolge prüfen", "Comprueba el orden", "Confira a ordem", "Controlla l'ordine", "Vérifiez l'ordre", "順番の確認", "순서 확인", "确认顺序", "Проверьте порядок" } },
+            { "music.dlg.hint", new[]{
+                "Drag a row to move a track to a different slot. The game picks tracks by number, so the order matters — play a track if you are unsure which one it is.",
+                "Zieh eine Zeile, um einen Titel auf einen anderen Platz zu schieben. Das Spiel wählt Titel über ihre Nummer, die Reihenfolge zählt also — hör einen Titel an, wenn du unsicher bist.",
+                "Arrastra una fila para mover una pista a otra posición. El juego elige las pistas por número, así que el orden importa: reproduce una pista si no estás seguro.",
+                "Arraste uma linha para mover uma faixa para outra posição. O jogo escolhe faixas pelo número, então a ordem importa — toque uma faixa se estiver em dúvida.",
+                "Trascina una riga per spostare un brano in un'altra posizione. Il gioco sceglie i brani per numero, quindi l'ordine conta: ascolta un brano se hai dubbi.",
+                "Faites glisser une ligne pour déplacer un morceau. Le jeu choisit les morceaux par numéro : l'ordre compte — écoutez un morceau en cas de doute.",
+                "行をドラッグすると曲を別の枠に移せます。ゲームは曲を番号で選ぶため順番が重要です。判断に迷ったら再生して確認してください。",
+                "행을 끌어서 트랙을 다른 자리로 옮길 수 있습니다. 게임은 번호로 트랙을 고르므로 순서가 중요합니다 — 헷갈리면 재생해 확인하세요.",
+                "拖动行可将曲目移到其他位置。游戏按编号选曲，因此顺序很重要 — 不确定时可以试听。",
+                "Перетащите строку, чтобы переместить трек в другой слот. Игра выбирает треки по номеру, поэтому порядок важен — послушайте трек, если сомневаетесь." } },
+            { "music.dlg.slot", new[]{
+                "Slot", "Platz", "Posición", "Posição", "Posizione", "Emplacement", "枠", "자리", "位置", "Слот" } },
+            { "music.dlg.file", new[]{
+                "File", "Datei", "Archivo", "Arquivo", "File", "Fichier", "ファイル", "파일", "文件", "Файл" } },
+            { "music.dlg.expected", new[]{
+                "Expected", "Erwartet", "Esperado", "Esperado", "Atteso", "Attendu", "想定", "예상", "预期", "Ожидается" } },
+            { "music.dlg.actual", new[]{
+                "Actual", "Tatsächlich", "Real", "Real", "Effettivo", "Réel", "実際", "실제", "实际", "Фактически" } },
+            { "music.dlg.match", new[]{
+                "Match", "Treffer", "Coincidencia", "Correspondência", "Corrispondenza", "Correspondance", "一致", "일치", "匹配", "Совпадение" } },
+            { "music.match.exact", new[]{
+                "known file", "bekannte Datei", "archivo conocido", "arquivo conhecido", "file noto", "fichier connu", "既知のファイル", "알려진 파일", "已知文件", "известный файл" } },
+            { "music.match.duration", new[]{
+                "by length", "über die Länge", "por duración", "pela duração", "per durata", "par la durée", "長さで判定", "길이로 판정", "按时长", "по длительности" } },
+            { "music.match.uncertain", new[]{
+                "unsure", "unsicher", "dudoso", "incerto", "incerto", "incertain", "不確実", "불확실", "不确定", "не уверен" } },
             { "grp.globalcheats", new[]{
                 "Always all players", "Immer alle Spieler", "Siempre todos los jugadores", "Sempre todos os jogadores", "Sempre tutti i giocatori", "Toujours tous les joueurs", "常に全プレイヤー", "항상 모든 플레이어", "始终对所有玩家", "Всегда для всех игроков" } },
             { "grp.unlock", new[]{

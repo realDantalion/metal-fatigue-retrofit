@@ -74,6 +74,36 @@ Good to know (all working as intended, not bugs):
 - Unit and crew limits always apply to every player; part unlocks always apply to you (unless you
   flip the switch to all players).
 
+## Music: Rimtech's missing soundtrack (optional)
+
+*Metal Fatigue* shipped on two CDs. **CD 1 held Rimtech's music, CD 2 held Mil-Agro's and
+Neuropa's.** The game never told them apart in code — it asked the CD drive for a track *number*,
+and whichever disc sat in the tray decided whose music that was. The re-release ships only CD 2's
+audio, so Rimtech asks for the same numbers as Mil-Agro and gets Mil-Agro's music.
+
+The **Music** tab fixes that by giving Rimtech ten track numbers of its own and copying your files
+into them. **No game audio is included** — the patcher ships none and links to no source. Supply
+the ten Rimtech tracks yourself, from your own CD 1 or wherever you can obtain them, as **OGG
+Vorbis** files (the game's audio layer reads nothing else).
+
+- Import from a **folder or a zip**; the tracks are matched to their slots by playing time, not by
+  file name, since every source names them differently.
+- The list shows what is on disk right now, colour-coded: in use by the game, copied but not
+  patched yet, or a length that does not fit its slot.
+- Any track can be **played back** in the patcher, with a seek bar — handy when a source arrived in
+  a different order and you need to sort it out. Rows can be moved with the arrow buttons.
+- **Remove imported music** takes out only the ten files it added and restores the original track
+  numbers. The game's own 22 tracks are never touched.
+
+The track order *should* match the CD, but only the exe's 16-byte table decides which numbers
+Rimtech asks for — so nothing breaks if a track sits one slot off; the wrong piece simply plays.
+
+The workaround that circulates on the GOG and Steam forums is to overwrite tracks 03–12 — Mil-Agro's
+music — with Rimtech's, and then keep two `MUSIC` folders and swap them between sessions, because
+both factions ask the game for the same ten numbers. Renaming files cannot fix that; the numbers
+live in the executable. This patch changes the numbers instead, so all three factions keep their own
+music at the same time and none of the game's own audio is overwritten.
+
 ## Is this safe?
 
 Windows shows an **"unknown publisher"** warning. That is expected: the patcher is not
@@ -173,6 +203,11 @@ It is distributed in the hope that it will be useful, but **WITHOUT ANY WARRANTY
 ## Legal
 
 Game rights holder: Nightdive Studios / Atari. This project distributes **only the patcher**, never game code or assets — it modifies the copy you already own.
+
+Two things worth stating explicitly, because both look like asset distribution at a glance and are not:
+
+- **Build icons are decoded at runtime from your own installation.** The parts screen shows the game's own icons so you can recognise what you are unlocking. Nothing is extracted, converted or bundled — the patcher reads the files already on your disk while it runs, and keeps no copy.
+- **No music is shipped.** Rimtech's soundtrack was on CD 1 and is missing from the re-release. The patcher can point the game at additional track slots and copy files *you* provide into place, but it contains no game audio of any kind and links to no source for it.
 
 ## Status
 
