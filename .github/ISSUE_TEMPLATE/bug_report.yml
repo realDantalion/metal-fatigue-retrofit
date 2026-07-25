@@ -100,6 +100,20 @@ body:
     validations:
       required: false
 
+  - type: textarea
+    id: errorlog
+    attributes:
+      label: Error log (if the patcher threw an error)
+      description: |
+        If the patcher hit an unexpected error, it saved a file next to its own exe called
+        `MetalFatigueRetrofitPatcher-ErrorLog-<date>.txt` and offered to open that folder.
+        **Drag the file in here, or paste its contents.** It holds the version, your Windows
+        build, what the patcher was doing and the full stack trace. Your Windows user name is
+        removed from it automatically.
+      render: text
+    validations:
+      required: false
+
   - type: input
     id: compatline
     attributes:

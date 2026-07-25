@@ -24,6 +24,10 @@ namespace MetalFatiguePatcher
         [STAThread]
         static void Main()
         {
+            // Before anything else: an unhandled exception should leave a report the user can attach
+            // to an issue, not the bare .NET dialog. Must precede the first window.
+            CrashLog.Install();
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
             Application.Run(new MainForm());

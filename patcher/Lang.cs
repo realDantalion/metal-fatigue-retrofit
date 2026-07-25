@@ -971,6 +971,67 @@ namespace MetalFatiguePatcher
                 "未找到可用于还原的备份 (.bak)。",
                 "Резервная копия (.bak) для восстановления не найдена." } },
 
+            // --- crash reporter ---
+            { "crash.title", new[]{
+                "Metal Fatigue Retrofit — unexpected error",
+                "Metal Fatigue Retrofit — unerwarteter Fehler",
+                "Metal Fatigue Retrofit — error inesperado",
+                "Metal Fatigue Retrofit — erro inesperado",
+                "Metal Fatigue Retrofit — errore imprevisto",
+                "Metal Fatigue Retrofit — erreur inattendue",
+                "Metal Fatigue Retrofit — 予期しないエラー",
+                "Metal Fatigue Retrofit — 예기치 않은 오류",
+                "Metal Fatigue Retrofit — 意外错误",
+                "Metal Fatigue Retrofit — непредвиденная ошибка" } },
+
+            { "crash.msg", new[]{
+                "The patcher ran into an error it could not handle and has to close.\r\n\r\nA report was saved here:\r\n{0}\r\n\r\nYour backup (MFatigue.exe.bak) is untouched — start the patcher again and press \"Restore original\" if the game misbehaves. Please attach the report to a bug report; your Windows user name is removed from it automatically.\r\n\r\nOpen the folder now?",
+                "Der Patcher ist auf einen Fehler gestoßen, den er nicht auffangen konnte, und muss sich beenden.\r\n\r\nEin Bericht wurde hier gespeichert:\r\n{0}\r\n\r\nDein Backup (MFatigue.exe.bak) ist unangetastet — starte den Patcher neu und klicke \"Original wiederherstellen\", falls sich das Spiel merkwürdig verhält. Häng den Bericht bitte an eine Fehlermeldung an; dein Windows-Benutzername wird automatisch daraus entfernt.\r\n\r\nDen Ordner jetzt öffnen?",
+                "El parcheador encontró un error que no pudo manejar y debe cerrarse.\r\n\r\nSe guardó un informe aquí:\r\n{0}\r\n\r\nTu copia de seguridad (MFatigue.exe.bak) sigue intacta: vuelve a abrir el parcheador y pulsa \"Restaurar original\" si el juego se comporta de forma extraña. Adjunta el informe a un reporte de error; tu nombre de usuario de Windows se elimina automáticamente.\r\n\r\n¿Abrir la carpeta ahora?",
+                "O patcher encontrou um erro que não conseguiu tratar e precisa fechar.\r\n\r\nUm relatório foi salvo aqui:\r\n{0}\r\n\r\nSeu backup (MFatigue.exe.bak) está intacto — abra o patcher novamente e clique em \"Restaurar original\" se o jogo se comportar de forma estranha. Anexe o relatório a um relato de bug; seu nome de usuário do Windows é removido automaticamente.\r\n\r\nAbrir a pasta agora?",
+                "Il patcher ha incontrato un errore che non è riuscito a gestire e deve chiudersi.\r\n\r\nUn rapporto è stato salvato qui:\r\n{0}\r\n\r\nIl tuo backup (MFatigue.exe.bak) è intatto: riavvia il patcher e premi \"Ripristina originale\" se il gioco si comporta in modo strano. Allega il rapporto a una segnalazione di bug; il tuo nome utente di Windows viene rimosso automaticamente.\r\n\r\nAprire la cartella adesso?",
+                "Le patcheur a rencontré une erreur qu'il n'a pas pu traiter et doit se fermer.\r\n\r\nUn rapport a été enregistré ici :\r\n{0}\r\n\r\nVotre sauvegarde (MFatigue.exe.bak) est intacte — relancez le patcheur et cliquez sur « Restaurer l'original » si le jeu se comporte mal. Joignez le rapport à un signalement de bogue ; votre nom d'utilisateur Windows en est retiré automatiquement.\r\n\r\nOuvrir le dossier maintenant ?",
+                "パッチャーが処理できないエラーに遭遇したため、終了します。\r\n\r\nレポートを次の場所に保存しました:\r\n{0}\r\n\r\nバックアップ (MFatigue.exe.bak) はそのままです。ゲームの動作がおかしい場合は、パッチャーを起動し直して「オリジナルを復元」を押してください。不具合の報告にこのレポートを添付してください。Windows のユーザー名は自動的に取り除かれます。\r\n\r\nフォルダーを開きますか?",
+                "패처가 처리할 수 없는 오류를 만나 종료해야 합니다.\r\n\r\n보고서를 다음 위치에 저장했습니다:\r\n{0}\r\n\r\n백업(MFatigue.exe.bak)은 그대로입니다. 게임이 이상하게 동작하면 패처를 다시 실행하고 \"원본 복원\"을 누르세요. 버그 신고에 이 보고서를 첨부해 주세요. Windows 사용자 이름은 자동으로 제거됩니다.\r\n\r\n지금 폴더를 열까요?",
+                "补丁工具遇到无法处理的错误，必须关闭。\r\n\r\n报告已保存在此处:\r\n{0}\r\n\r\n你的备份 (MFatigue.exe.bak) 未受影响 — 如果游戏表现异常，请重新启动补丁工具并点击\"还原原始文件\"。请将该报告附在问题反馈中，其中的 Windows 用户名会被自动移除。\r\n\r\n现在打开该文件夹吗?",
+                "Патчер столкнулся с ошибкой, которую не смог обработать, и должен закрыться.\r\n\r\nОтчёт сохранён здесь:\r\n{0}\r\n\r\nВаша резервная копия (MFatigue.exe.bak) не тронута — запустите патчер снова и нажмите «Восстановить оригинал», если игра ведёт себя странно. Приложите отчёт к сообщению об ошибке; имя пользователя Windows удаляется из него автоматически.\r\n\r\nОткрыть папку сейчас?" } },
+
+            { "crash.msgContinue", new[]{
+                "Something went wrong that the patcher did not expect. It can keep running — but if it starts behaving oddly, restart it.\r\n\r\nA report was saved here:\r\n{0}\r\n\r\nYour game and your backup have not been touched. Please attach the report to a bug report; your Windows user name is removed from it automatically.\r\n\r\nOpen the folder now?",
+                "Etwas ist schiefgelaufen, womit der Patcher nicht gerechnet hat. Er läuft weiter — falls er sich aber merkwürdig verhält, starte ihn neu.\r\n\r\nEin Bericht wurde hier gespeichert:\r\n{0}\r\n\r\nDein Spiel und dein Backup sind unangetastet. Häng den Bericht bitte an eine Fehlermeldung an; dein Windows-Benutzername wird automatisch daraus entfernt.\r\n\r\nDen Ordner jetzt öffnen?",
+                "Ha ocurrido algo con lo que el parcheador no contaba. Puede seguir funcionando, pero si se comporta de forma extraña, reinícialo.\r\n\r\nSe guardó un informe aquí:\r\n{0}\r\n\r\nTu juego y tu copia de seguridad no se han tocado. Adjunta el informe a un reporte de error; tu nombre de usuario de Windows se elimina automáticamente.\r\n\r\n¿Abrir la carpeta ahora?",
+                "Aconteceu algo com que o patcher não contava. Ele pode continuar, mas se começar a se comportar de forma estranha, reinicie-o.\r\n\r\nUm relatório foi salvo aqui:\r\n{0}\r\n\r\nSeu jogo e seu backup não foram tocados. Anexe o relatório a um relato de bug; seu nome de usuário do Windows é removido automaticamente.\r\n\r\nAbrir a pasta agora?",
+                "È successo qualcosa che il patcher non si aspettava. Può continuare a funzionare, ma se si comporta in modo strano, riavvialo.\r\n\r\nUn rapporto è stato salvato qui:\r\n{0}\r\n\r\nIl gioco e il backup non sono stati toccati. Allega il rapporto a una segnalazione di bug; il tuo nome utente di Windows viene rimosso automaticamente.\r\n\r\nAprire la cartella adesso?",
+                "Quelque chose d'imprévu s'est produit. Le patcheur peut continuer à fonctionner, mais s'il se comporte bizarrement, relancez-le.\r\n\r\nUn rapport a été enregistré ici :\r\n{0}\r\n\r\nVotre jeu et votre sauvegarde n'ont pas été touchés. Joignez le rapport à un signalement de bogue ; votre nom d'utilisateur Windows en est retiré automatiquement.\r\n\r\nOuvrir le dossier maintenant ?",
+                "パッチャーが想定していない問題が発生しました。動作は継続できますが、挙動がおかしい場合は再起動してください。\r\n\r\nレポートを次の場所に保存しました:\r\n{0}\r\n\r\nゲームとバックアップには手を付けていません。不具合の報告にこのレポートを添付してください。Windows のユーザー名は自動的に取り除かれます。\r\n\r\nフォルダーを開きますか?",
+                "패처가 예상하지 못한 문제가 발생했습니다. 계속 사용할 수 있지만, 동작이 이상하면 다시 시작하세요.\r\n\r\n보고서를 다음 위치에 저장했습니다:\r\n{0}\r\n\r\n게임과 백업은 건드리지 않았습니다. 버그 신고에 이 보고서를 첨부해 주세요. Windows 사용자 이름은 자동으로 제거됩니다.\r\n\r\n지금 폴더를 열까요?",
+                "补丁工具遇到了未预料到的问题。它仍可继续运行，但如果表现异常，请重新启动。\r\n\r\n报告已保存在此处:\r\n{0}\r\n\r\n你的游戏和备份未被改动。请将该报告附在问题反馈中，其中的 Windows 用户名会被自动移除。\r\n\r\n现在打开该文件夹吗?",
+                "Произошло нечто, чего патчер не ожидал. Он может продолжать работу, но если начнёт вести себя странно, перезапустите его.\r\n\r\nОтчёт сохранён здесь:\r\n{0}\r\n\r\nИгра и резервная копия не тронуты. Приложите отчёт к сообщению об ошибке; имя пользователя Windows удаляется из него автоматически.\r\n\r\nОткрыть папку сейчас?" } },
+
+            { "crash.msgNoFileContinue", new[]{
+                "Something went wrong that the patcher did not expect, and the report could not be saved anywhere. It can keep running — but if it starts behaving oddly, restart it. Please copy the text below into a bug report.\r\n\r\n{0}",
+                "Etwas ist schiefgelaufen, womit der Patcher nicht gerechnet hat, und der Bericht ließ sich nirgends speichern. Er läuft weiter — falls er sich aber merkwürdig verhält, starte ihn neu. Kopiere den Text unten bitte in eine Fehlermeldung.\r\n\r\n{0}",
+                "Ha ocurrido algo con lo que el parcheador no contaba y no se pudo guardar el informe en ningún sitio. Puede seguir funcionando, pero si se comporta de forma extraña, reinícialo. Copia el texto de abajo en un reporte de error.\r\n\r\n{0}",
+                "Aconteceu algo com que o patcher não contava e o relatório não pôde ser salvo em lugar nenhum. Ele pode continuar, mas se começar a se comportar de forma estranha, reinicie-o. Copie o texto abaixo para um relato de bug.\r\n\r\n{0}",
+                "È successo qualcosa che il patcher non si aspettava e non è stato possibile salvare il rapporto da nessuna parte. Può continuare a funzionare, ma se si comporta in modo strano, riavvialo. Copia il testo qui sotto in una segnalazione di bug.\r\n\r\n{0}",
+                "Quelque chose d'imprévu s'est produit et le rapport n'a pu être enregistré nulle part. Le patcheur peut continuer à fonctionner, mais s'il se comporte bizarrement, relancez-le. Copiez le texte ci-dessous dans un signalement de bogue.\r\n\r\n{0}",
+                "パッチャーが想定していない問題が発生し、レポートをどこにも保存できませんでした。動作は継続できますが、挙動がおかしい場合は再起動してください。下のテキストを不具合の報告にコピーしてください。\r\n\r\n{0}",
+                "패처가 예상하지 못한 문제가 발생했고, 보고서를 어디에도 저장하지 못했습니다. 계속 사용할 수 있지만, 동작이 이상하면 다시 시작하세요. 아래 텍스트를 버그 신고에 복사해 주세요.\r\n\r\n{0}",
+                "补丁工具遇到了未预料到的问题，并且报告无法保存到任何位置。它仍可继续运行，但如果表现异常，请重新启动。请把下面的文字复制到问题反馈中。\r\n\r\n{0}",
+                "Произошло нечто, чего патчер не ожидал, и отчёт не удалось сохранить ни в одном месте. Он может продолжать работу, но если начнёт вести себя странно, перезапустите его. Скопируйте текст ниже в сообщение об ошибке.\r\n\r\n{0}" } },
+
+            { "crash.msgNoFile", new[]{
+                "The patcher ran into an error it could not handle and has to close. The report could not be saved anywhere.\r\n\r\n{0}",
+                "Der Patcher ist auf einen Fehler gestoßen, den er nicht auffangen konnte, und muss sich beenden. Der Bericht ließ sich nirgends speichern.\r\n\r\n{0}",
+                "El parcheador encontró un error que no pudo manejar y debe cerrarse. No se pudo guardar el informe en ningún sitio.\r\n\r\n{0}",
+                "O patcher encontrou um erro que não conseguiu tratar e precisa fechar. O relatório não pôde ser salvo em lugar nenhum.\r\n\r\n{0}",
+                "Il patcher ha incontrato un errore che non è riuscito a gestire e deve chiudersi. Non è stato possibile salvare il rapporto da nessuna parte.\r\n\r\n{0}",
+                "Le patcheur a rencontré une erreur qu'il n'a pas pu traiter et doit se fermer. Le rapport n'a pu être enregistré nulle part.\r\n\r\n{0}",
+                "パッチャーが処理できないエラーに遭遇したため、終了します。レポートはどこにも保存できませんでした。\r\n\r\n{0}",
+                "패처가 처리할 수 없는 오류를 만나 종료해야 합니다. 보고서를 어디에도 저장하지 못했습니다.\r\n\r\n{0}",
+                "补丁工具遇到无法处理的错误，必须关闭。报告无法保存到任何位置。\r\n\r\n{0}",
+                "Патчер столкнулся с ошибкой, которую не смог обработать, и должен закрыться. Отчёт не удалось сохранить ни в одном месте.\r\n\r\n{0}" } },
+
             // --- 2.0 cheat tab ---
             { "tab.patch", new[]{
                 "Patch", "Patch", "Parche", "Patch", "Patch", "Patch", "パッチ", "패치", "补丁", "Патч" } },

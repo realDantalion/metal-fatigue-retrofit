@@ -208,13 +208,24 @@ namespace MetalFatiguePatcher
             }
         }
 
-        public static string MusicDir(string exePath) =>
-            Path.Combine(Path.GetDirectoryName(exePath) ?? ".", "MUSIC");
+        /// <summary>
+        /// The game's MUSIC folder, or null when the caller has no usable game path yet — which is
+        /// the normal state until an installation is selected. Path.GetDirectoryName throws on an
+        /// empty or malformed path rather than returning null, so every read-only caller below has
+        /// to be able to answer "nothing there" without the exception escaping.
+        /// </summary>
+        public static string MusicDir(string exePath)
+        {
+            if (string.IsNullOrWhiteSpace(exePath)) return null;
+            try { return Path.Combine(Path.GetDirectoryName(exePath) ?? ".", "MUSIC"); }
+            catch { return null; }
+        }
 
         /// <summary>Copy the assigned files into MUSIC\TrackNN.ogg and verify each one landed.</summary>
         public static void Install(string exePath, IEnumerable<Candidate> tracks, Action<string> log)
         {
             var dir = MusicDir(exePath);
+            if (dir == null) throw new ArgumentException("no game path to install into", "exePath");
             Directory.CreateDirectory(dir);
 
             foreach (var t in tracks.Where(x => x.Slot >= 0).OrderBy(x => x.Slot))
@@ -240,6 +251,7 @@ namespace MetalFatiguePatcher
         {
             failed = new List<string>();
             var dir = MusicDir(exePath);
+            if (dir == null) return 0;
             int n = 0;
             for (int i = 0; i < PatchData.MusicSlotCount; i++)
             {
@@ -261,6 +273,7 @@ namespace MetalFatiguePatcher
         public static bool FilesPresent(string exePath)
         {
             var dir = MusicDir(exePath);
+            if (dir == null) return false;
             for (int i = 0; i < PatchData.MusicSlotCount; i++)
                 if (!File.Exists(Path.Combine(dir, string.Format("Track{0:00}.ogg", PatchData.MusicFirstSlot + i))))
                     return false;
@@ -277,6 +290,7 @@ namespace MetalFatiguePatcher
         {
             var dir = MusicDir(exePath);
             var list = new List<Candidate>();
+            if (dir == null) return list;
             for (int i = 0; i < PatchData.MusicSlotCount; i++)
             {
                 int slot = PatchData.MusicFirstSlot + i;
@@ -300,6 +314,7 @@ namespace MetalFatiguePatcher
         public static void Rearrange(string exePath, IEnumerable<Candidate> tracks, Action<string> log)
         {
             var dir = MusicDir(exePath);
+            if (dir == null) throw new ArgumentException("no game path to rearrange in", "exePath");
             var staged = new List<string[]>();
 
             foreach (var t in tracks.Where(x => x.Slot >= 0))

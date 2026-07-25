@@ -44,7 +44,7 @@ namespace MetalFatiguePatcher
         /// <summary>Repository issue tracker — the report link points here (a real URL, unlike
         /// ContactUrl). A query pre-selects the right template for unknown builds vs unknown
         /// language patches.</summary>
-        const string IssuesUrl = "https://github.com/realDantalion/metal-fatigue-retrofit/issues";
+        internal const string IssuesUrl = "https://github.com/realDantalion/metal-fatigue-retrofit/issues";
         GroupBox _srcGroup, _profGroup, _svGroup;
         CheckBox _sharedVision;
 
@@ -627,6 +627,9 @@ namespace MetalFatiguePatcher
             }
             catch (Exception ex)
             {
+                // Into the log as well as the box: the message box is gone the moment it is clicked
+                // away, and a crash report written afterwards is the only place this can still show up.
+                Log(Lang.T("tab.music") + ": " + ex.Message);
                 MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally
@@ -727,6 +730,9 @@ namespace MetalFatiguePatcher
             }
             catch (Exception ex)
             {
+                // Into the log as well as the box: the message box is gone the moment it is clicked
+                // away, and a crash report written afterwards is the only place this can still show up.
+                Log(Lang.T("tab.music") + ": " + ex.Message);
                 MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             FillMusicGrid();
@@ -796,6 +802,9 @@ namespace MetalFatiguePatcher
             }
             catch (Exception ex)
             {
+                // Into the log as well as the box: the message box is gone the moment it is clicked
+                // away, and a crash report written afterwards is the only place this can still show up.
+                Log(Lang.T("tab.music") + ": " + ex.Message);
                 MessageBox.Show(this, ex.Message, Lang.T("tab.music"), MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
             finally { Detect(); UpdateMusicState(); }
@@ -808,6 +817,10 @@ namespace MetalFatiguePatcher
             var path = _pathBox.Text.Trim();
             bool haveFiles = !string.IsNullOrEmpty(path) && MusicImport.FilesPresent(path);
             bool installed = haveFiles && _lastInstalled != null && _lastInstalled.RimtechMusic;
+
+            // Importing and removing music do not go through UpdateCompat, so the crash report's
+            // music fact would otherwise still describe the state before the user touched anything.
+            try { CrashLog.Context("music:", haveFiles ? "files present" : "no files"); } catch { }
 
             // Reconstruct the real arrangement, not just "something is there": if a file sits on a
             // slot whose reference length it does not match, say so — that is exactly the failure
@@ -1674,6 +1687,19 @@ namespace MetalFatiguePatcher
 
             // Only offer Restore when the backup actually verifies as a clean original.
             _restoreBtn.Enabled = Patcher.HasValidBackup(path);
+
+            // Push the state a crash report would need. Pushed, never pulled: the reporter runs when
+            // this thread may already be dead, and must not touch a control to find any of this out.
+            // Wrapped because gathering diagnostics must never be the thing that takes the app down —
+            // an early version of this block did exactly that on an empty path box.
+            try
+            {
+                CrashLog.Context("exe:", string.IsNullOrEmpty(path) ? "(none selected)" : path);
+                CrashLog.Context("state:", c.ToString() + (profKey != null ? " / installed=" + profKey : ""));
+                CrashLog.Context("backup:", _restoreBtn.Enabled ? "clean" : "missing or unusable");
+                CrashLog.Context("music:", MusicImport.FilesPresent(path) ? "files present" : "no files");
+            }
+            catch { }
         }
 
         /// <summary>
@@ -1968,7 +1994,13 @@ namespace MetalFatiguePatcher
             }
         }
 
-        void Log(string s) => _log.AppendText(s + Environment.NewLine);
+        // Mirrored into the crash report: the on-screen log dies with the window, and the last few
+        // lines before a crash are usually the whole story.
+        void Log(string s)
+        {
+            CrashLog.Note(s);
+            _log.AppendText(s + Environment.NewLine);
+        }
 
         void Detect()
         {

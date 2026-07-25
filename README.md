@@ -153,6 +153,7 @@ The **GOG and Steam `MFatigue.exe` are byte-identical** (SHA256 `26d428f1…`, t
 **[Open an issue →](https://github.com/realDantalion/metal-fatigue-retrofit/issues/new/choose)**
 
 - **Something is broken** — use *Bug report*, and paste the contents of the patcher's log box. That alone usually shows the cause.
+- **The patcher hit an unexpected error** — it writes a file named `MetalFatigueRetrofitPatcher-ErrorLog-<date>.txt` next to its own exe and offers to open that folder. **Attach it.** It carries the version, your Windows build, what the patcher was working on and the full stack trace — everything the log box can't tell me. Your Windows user name is stripped out automatically.
 - **The patcher doesn't recognise your build** — use *Unsupported game version* and include the file size and SHA-256 of your `MFatigue.exe`. Only the Nightdive re-release is supported so far.
 
 ### Worth reporting

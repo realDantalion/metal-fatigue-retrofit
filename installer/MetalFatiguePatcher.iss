@@ -83,6 +83,11 @@ Source: "..\patcher\bin\Release\net48\MetalFatigueRetrofitPatcher.exe"; DestDir:
 Source: "..\README.md"; DestDir: "{app}"; DestName: "README.txt"; Flags: ignoreversion
 Source: "..\LICENSE";   DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
+[UninstallDelete]
+; Error logs the patcher wrote next to its own exe. They are created after install, so Setup
+; does not know about them and would otherwise leave {app} behind with a stray .txt in it.
+Type: files; Name: "{app}\MetalFatigueRetrofitPatcher-ErrorLog-*.txt"
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
