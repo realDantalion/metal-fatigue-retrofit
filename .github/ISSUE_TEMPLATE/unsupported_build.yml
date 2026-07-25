@@ -14,6 +14,9 @@ body:
         version, or an older patch level — the two values below are exactly what's needed to
         look into supporting it.
 
+        **Tip:** when you clicked "Report version" the patcher copied your file size and SHA-256
+        to the clipboard — you can paste them straight into the two fields below.
+
   - type: dropdown
     id: source
     attributes:

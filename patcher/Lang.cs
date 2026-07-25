@@ -123,6 +123,18 @@ namespace MetalFatiguePatcher
                 "免费建造 · 极速建造 · 无战争迷雾",
                 "Бесплатная постройка · турбо-строительство · без тумана войны" } },
 
+            { "banner.expSub", new[]{
+                "Experimental features — may break things",
+                "Experimentelle Features — kann Dinge kaputt machen",
+                "Funciones experimentales — pueden romper cosas",
+                "Recursos experimentais — podem quebrar coisas",
+                "Funzioni sperimentali — possono rompere qualcosa",
+                "Fonctions expérimentales — peuvent tout casser",
+                "実験的機能 — 不具合が出ることがあります",
+                "실험적 기능 — 문제가 생길 수 있습니다",
+                "实验性功能 — 可能出问题",
+                "Экспериментальные функции — могут что-то сломать" } },
+
             { "grp.source", new[]{
                 "1. Game source",
                 "1. Spielquelle",
@@ -304,16 +316,16 @@ namespace MetalFatiguePatcher
                 "✔ Совместимая версия игры — можно патчить." } },
 
             { "compat.patched", new[]{
-                "● Already patched: {0}",
-                "● Bereits gepatcht: {0}",
-                "● Ya parcheado: {0}",
-                "● Já aplicado: {0}",
-                "● Patch già applicata: {0}",
-                "● Déjà patché : {0}",
-                "● パッチ適用済み: {0}",
-                "● 패치 적용됨: {0}",
-                "● 已打补丁：{0}",
-                "● Уже пропатчено: {0}" } },
+                "● Already patched — you can switch version or restore the original.",
+                "● Bereits gepatcht — Version wechselbar, Original wiederherstellbar.",
+                "● Ya parcheado: puedes cambiar de versión o restaurar el original.",
+                "● Já aplicado — pode trocar de versão ou restaurar o original.",
+                "● Patch già applicata — puoi cambiare versione o ripristinare l'originale.",
+                "● Déjà patché — version modifiable, original restaurable.",
+                "● パッチ適用済み — バージョン変更・復元が可能です。",
+                "● 패치 적용됨 — 버전을 변경하거나 원본으로 복원할 수 있습니다.",
+                "● 已打补丁 — 可切换版本或还原原版。",
+                "● Уже пропатчено — можно сменить версию или восстановить оригинал." } },
 
             { "compat.patchedUnknown", new[]{
                 "● Already patched — you can switch version or restore the original.",
@@ -351,6 +363,30 @@ namespace MetalFatiguePatcher
                 "⚠ 已打补丁，但备份丢失 — 请验证或重装游戏以获得干净副本。",
                 "⚠ Пропатчено, но резервная копия отсутствует — проверьте или переустановите игру." } },
 
+            { "info.legacyHint", new[]{
+                "Note: patched by Retrofit {0}; re-patching is recommended — it rebuilds from your backup.",
+                "Hinweis: mit Retrofit {0} gepatcht; neu patchen empfohlen — baut automatisch aus dem Backup neu.",
+                "Nota: parcheado con Retrofit {0}; se recomienda volver a parchear: se reconstruye desde tu copia.",
+                "Nota: aplicado com o Retrofit {0}; recomenda-se aplicar de novo — reconstrói a partir do backup.",
+                "Nota: patch applicata con Retrofit {0}; conviene riapplicarla — ricostruisce dal backup.",
+                "Note : patché avec Retrofit {0} ; il est conseillé de repatcher — reconstruit depuis la sauvegarde.",
+                "注意: Retrofit {0} でパッチ済みです。バックアップから再構築されるため、再パッチを推奨します。",
+                "참고: Retrofit {0}(으)로 패치되었습니다. 백업에서 다시 만들므로 재패치를 권장합니다.",
+                "提示：由 Retrofit {0} 打过补丁；建议重新打补丁 — 会自动从备份重建。",
+                "Примечание: пропатчено Retrofit {0}; рекомендуется пропатчить заново — сборка идёт из резервной копии." } },
+
+            { "compat.legacyLayout", new[]{
+                "⚠ Patched by Retrofit {0}, whose layout is no longer supported, and the backup is missing — restore the original (verify/reinstall the game), then patch again.",
+                "⚠ Mit Retrofit {0} gepatcht, dessen Layout nicht mehr unterstützt wird, und das Backup fehlt — bitte das Original wiederherstellen (Spiel verifizieren/neu installieren) und erneut patchen.",
+                "⚠ Parcheado con Retrofit {0}, cuyo diseño ya no es compatible, y falta la copia de seguridad: restaura el original (verifica o reinstala el juego) y vuelve a parchear.",
+                "⚠ Aplicado com o Retrofit {0}, cujo layout já não é suportado, e o backup sumiu — restaure o original (verifique ou reinstale o jogo) e aplique de novo.",
+                "⚠ Patch applicata con Retrofit {0}, il cui layout non è più supportato, e manca il backup — ripristina l'originale (verifica o reinstalla il gioco) e riapplica.",
+                "⚠ Patché avec Retrofit {0}, dont la disposition n'est plus prise en charge, et la sauvegarde manque — restaurez l'original (vérifiez ou réinstallez le jeu), puis patchez à nouveau.",
+                "⚠ Retrofit {0} でパッチ済みですが、その配置はサポート対象外になり、バックアップもありません — 元のファイルを復元（ゲームを検証／再インストール）してから再度パッチしてください。",
+                "⚠ Retrofit {0}(으)로 패치되었으나 해당 배치는 더 이상 지원되지 않으며 백업도 없습니다 — 원본을 복원한 뒤(게임 검증/재설치) 다시 패치해 주세요.",
+                "⚠ 由 Retrofit {0} 打过补丁，该布局已不再支持，且备份丢失 — 请先还原原版（验证或重装游戏），然后重新打补丁。",
+                "⚠ Пропатчено Retrofit {0}, чья компоновка больше не поддерживается, а резервной копии нет — восстановите оригинал (проверьте или переустановите игру) и пропатчите заново." } },
+
             { "compat.missing", new[]{
                 "No MFatigue.exe selected yet.",
                 "Noch keine MFatigue.exe ausgewählt.",
@@ -374,6 +410,34 @@ namespace MetalFatiguePatcher
                 "호환되지 않나요? 문의하기 →",
                 "不兼容？请联系我们 →",
                 "Не совместимо? Напишите нам →" } },
+
+            // --- exe read-out area (info panel under the path box) ---
+            { "info.build", new[]{
+                "Build:", "Build:", "Versión:", "Versão:", "Build:", "Build :", "ビルド：", "빌드:", "版本：", "Сборка:" } },
+            { "info.build.nightdive", new[]{
+                "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)", "Nightdive 2021 (GOG/Steam)" } },
+            { "info.build.unknown", new[]{
+                "Unknown", "Unbekannt", "Desconocida", "Desconhecida", "Sconosciuta", "Inconnu", "不明", "알 수 없음", "未知", "Неизвестно" } },
+            { "info.language", new[]{
+                "Language:", "Sprachversion:", "Idioma:", "Idioma:", "Lingua:", "Langue :", "言語：", "언어:", "语言：", "Язык:" } },
+            { "info.installed", new[]{
+                "Patched:", "Gepatcht:", "Parcheado:", "Aplicado:", "Applicato:", "Patché :", "パッチ済み：", "패치됨:", "已打补丁：", "Пропатчено:" } },
+            { "info.installed.none", new[]{
+                "nothing", "nichts", "nada", "nada", "niente", "rien", "なし", "없음", "无", "ничего" } },
+            { "info.cat.patch", new[]{
+                "Base patch", "Basis-Patch", "Parche base", "Patch base", "Patch base", "Patch de base", "基本パッチ", "기본 패치", "基础补丁", "Базовый патч" } },
+            { "info.cat.cheats", new[]{
+                "Cheats", "Cheats", "Trucos", "Cheats", "Trucchi", "Triche", "チート", "치트", "秘籍", "Читы" } },
+            { "info.cat.experimental", new[]{
+                "Experimental", "Experimentell", "Experimental", "Experimental", "Sperimentale", "Expérimental", "実験的", "실험적", "实验性", "Эксперим." } },
+            { "info.report", new[]{
+                "Report version →", "Version melden →", "Informar versión →", "Relatar versão →", "Segnala versione →", "Signaler la version →", "バージョンを報告 →", "버전 신고 →", "报告版本 →", "Сообщить о версии →" } },
+            { "variant.english", new[]{
+                "English", "Englisch", "Inglés", "Inglês", "Inglese", "Anglais", "英語", "영어", "英语", "Английская" } },
+            { "variant.german", new[]{
+                "German language patch", "Deutscher Sprachpatch", "Parche de idioma alemán", "Patch de idioma alemão", "Patch lingua tedesca", "Patch de langue allemand", "ドイツ語化パッチ", "독일어 언어 패치", "德语语言补丁", "Немецкий языковой патч" } },
+            { "variant.unknown", new[]{
+                "Unknown language patch", "Unbekannter Sprachpatch", "Parche de idioma desconocido", "Patch de idioma desconhecido", "Patch lingua sconosciuta", "Patch de langue inconnu", "不明な言語パッチ", "알 수 없는 언어 패치", "未知语言补丁", "Неизвестный языковой патч" } },
 
             { "prof.unleashed.title", new[]{
                 "Maximum",
@@ -912,10 +976,66 @@ namespace MetalFatiguePatcher
                 "Patch", "Patch", "Parche", "Patch", "Patch", "Patch", "パッチ", "패치", "补丁", "Патч" } },
             { "tab.cheats", new[]{
                 "Cheats", "Cheats", "Trucos", "Cheats", "Trucchi", "Triche", "チート", "치트", "秘籍", "Читы" } },
+            { "tab.experimental", new[]{
+                "Experimental", "Experimentell", "Experimental", "Experimental", "Sperimentale", "Expérimental", "実験的", "실험적", "实验性", "Эксперим." } },
+            { "grp.expwarn", new[]{
+                "Please read first", "Bitte zuerst lesen", "Léelo primero", "Leia primeiro", "Leggi prima", "À lire d'abord", "最初にお読みください", "먼저 읽어 주세요", "请先阅读", "Прочтите сначала" } },
+            { "exp.warning", new[]{
+                "⚠ These features change core game behaviour and can break saved games or multiplayer. Back up your save first and use them at your own risk.",
+                "⚠ Diese Features ändern grundlegendes Spielverhalten und können Spielstände oder den Mehrspielermodus beschädigen. Mach vorher ein Backup und nutze sie auf eigene Gefahr.",
+                "⚠ Estas funciones cambian el comportamiento básico del juego y pueden dañar partidas guardadas o el multijugador. Haz una copia de seguridad y úsalas bajo tu propio riesgo.",
+                "⚠ Estes recursos alteram o comportamento básico do jogo e podem quebrar jogos salvos ou o multijogador. Faça backup antes e use por sua conta e risco.",
+                "⚠ Queste funzioni cambiano il comportamento di base del gioco e possono rovinare i salvataggi o il multiplayer. Fai un backup e usale a tuo rischio.",
+                "⚠ Ces fonctions modifient le comportement de base du jeu et peuvent casser les sauvegardes ou le multijoueur. Sauvegardez d'abord et utilisez-les à vos risques.",
+                "⚠ これらの機能はゲームの基本動作を変更し、セーブデータやマルチプレイを壊す可能性があります。事前にバックアップし、自己責任でご利用ください。",
+                "⚠ 이 기능들은 게임의 핵심 동작을 바꾸며 저장 게임이나 멀티플레이를 손상시킬 수 있습니다. 먼저 백업하고 본인 책임하에 사용하세요.",
+                "⚠ 这些功能会改变游戏的核心行为，可能损坏存档或多人游戏。请先备份，风险自负。",
+                "⚠ Эти функции меняют базовое поведение игры и могут повредить сохранения или мультиплеер. Сделайте резервную копию и используйте на свой риск." } },
+            { "grp.expsoon", new[]{
+                "Features", "Funktionen", "Funciones", "Recursos", "Funzioni", "Fonctions", "機能", "기능", "功能", "Функции" } },
+            { "exp.soon", new[]{
+                "More experimental features will follow in later versions.",
+                "Weitere experimentelle Features folgen in späteren Versionen.",
+                "Más funciones experimentales llegarán en versiones posteriores.",
+                "Mais recursos experimentais virão em versões futuras.",
+                "Altre funzioni sperimentali arriveranno nelle versioni successive.",
+                "D'autres fonctions expérimentales suivront dans les prochaines versions.",
+                "実験的機能は今後のバージョンでさらに追加されます。",
+                "추가 실험적 기능은 향후 버전에서 제공됩니다.",
+                "更多实验性功能将在后续版本中加入。",
+                "Другие экспериментальные функции появятся в следующих версиях." } },
+            { "grp.expspeed", new[]{
+                "Unit movement speed", "Bewegungsgeschwindigkeit der Einheiten", "Velocidad de movimiento de las unidades", "Velocidade de movimento das unidades", "Velocità di movimento delle unità", "Vitesse de déplacement des unités", "ユニットの移動速度", "유닛 이동 속도", "单位移动速度", "Скорость передвижения юнитов" } },
+            { "exp.speed", new[]{
+                "Speed up unit movement", "Einheiten schneller bewegen", "Acelerar el movimiento de las unidades", "Acelerar o movimento das unidades", "Accelera il movimento delle unità", "Accélérer le déplacement des unités", "ユニットの移動を速くする", "유닛 이동 속도 높이기", "加快单位移动", "Ускорить передвижение юнитов" } },
+            { "exp.speed.factor", new[]{
+                "Factor:", "Faktor:", "Factor:", "Fator:", "Fattore:", "Facteur :", "倍率：", "배율:", "倍率：", "Множитель:" } },
+            { "exp.speed.note", new[]{
+                "Multiplies every unit's top speed, so faster legs still beat slower ones. Braking and arrival scale with it, so units keep stopping on target — but at very high factors they get hard to control.",
+                "Multipliziert die Höchstgeschwindigkeit jeder Einheit — schnellere Beine bleiben also schneller als langsame. Bremsen und Ankommen skalieren mit, Einheiten halten weiterhin auf dem Ziel — bei sehr hohen Faktoren werden sie aber schwer steuerbar.",
+                "Multiplica la velocidad máxima de cada unidad, así que las piernas rápidas siguen siendo mejores. El frenado y la llegada escalan con ella, por lo que las unidades siguen parando en el objetivo, pero con factores muy altos cuesta controlarlas.",
+                "Multiplica a velocidade máxima de cada unidade, então pernas mais rápidas continuam melhores. A frenagem e a chegada acompanham, então as unidades continuam parando no alvo — mas com fatores muito altos ficam difíceis de controlar.",
+                "Moltiplica la velocità massima di ogni unità, quindi le gambe veloci restano migliori. Frenata e arrivo scalano di conseguenza, così le unità si fermano ancora sul bersaglio, ma con fattori molto alti diventano difficili da controllare.",
+                "Multiplie la vitesse maximale de chaque unité : les jambes rapides restent meilleures. Le freinage et l'arrivée suivent, les unités s'arrêtent donc toujours sur la cible — mais à facteur très élevé, elles deviennent difficiles à contrôler.",
+                "各ユニットの最高速度に倍率を掛けます。速い脚部は速いままです。減速と到着判定も一緒にスケールするため目標地点で停止できますが、倍率が高すぎると操作が難しくなります。",
+                "모든 유닛의 최고 속도에 배율을 곱하므로 빠른 다리는 여전히 더 빠릅니다. 감속과 도착 판정도 함께 조정되어 목표 지점에 정확히 멈추지만, 배율이 너무 높으면 조종이 어려워집니다.",
+                "按倍率提高每个单位的最高速度，因此快速腿部依然更快。减速与到达判定会同步缩放，单位仍能停在目标点——但倍率过高会难以操控。",
+                "Умножает максимальную скорость каждого юнита, поэтому быстрые ноги остаются быстрее медленных. Торможение и прибытие масштабируются вместе с ней, так что юниты по-прежнему останавливаются на цели, но при очень больших множителях ими трудно управлять." } },
+            { "exp.speed.example", new[]{
+                "At {0}×: Hovertruck 28 → {1}, combot with HTH legs 15.5 → {2}.",
+                "Bei {0}×: Hovertruck 28 → {1}, Combot mit HTH-Beinen 15.5 → {2}.",
+                "Con {0}×: Hovertruck 28 → {1}, combot con piernas HTH 15.5 → {2}.",
+                "Com {0}×: Hovertruck 28 → {1}, combot com pernas HTH 15.5 → {2}.",
+                "A {0}×: Hovertruck 28 → {1}, combot con gambe HTH 15.5 → {2}.",
+                "À {0}× : Hovertruck 28 → {1}, combot avec jambes HTH 15.5 → {2}.",
+                "{0}×：ホバートラック 28 → {1}、HTH脚部のコンボット 15.5 → {2}。",
+                "{0}×: 호버트럭 28 → {1}, HTH 다리 콤봇 15.5 → {2}.",
+                "{0}× 时：气垫卡车 28 → {1}，装 HTH 腿部的 Combot 15.5 → {2}。",
+                "При {0}×: ховертрак 28 → {1}, комбот с ногами HTH 15.5 → {2}." } },
             { "grp.globalcheats", new[]{
                 "Always all players", "Immer alle Spieler", "Siempre todos los jugadores", "Sempre todos os jogadores", "Sempre tutti i giocatori", "Toujours tous les joueurs", "常に全プレイヤー", "항상 모든 플레이어", "始终对所有玩家", "Всегда для всех игроков" } },
             { "grp.unlock", new[]{
-                "Unlock parts of other factions", "Teile anderer Fraktionen freischalten", "Desbloquear piezas de otras facciones", "Desbloquear peças de outras facções", "Sblocca parti di altre fazioni", "Débloquer les pièces d'autres factions", "他勢力のパーツを解禁", "다른 진영의 부품 잠금 해제", "解锁其他阵营的部件", "Разблокировать детали других фракций" } },
+                "Unlock parts and superweapons of other factions", "Teile und Superwaffen anderer Fraktionen freischalten", "Desbloquear piezas y superarmas de otras facciones", "Desbloquear peças e superarmas de outras facções", "Sblocca parti e superarmi di altre fazioni", "Débloquer les pièces et superarmes d'autres factions", "他勢力のパーツとスーパーウェポンを解禁", "다른 진영의 부품과 슈퍼무기 잠금 해제", "解锁其他阵营的部件与超级武器", "Разблокировать детали и супероружие других фракций" } },
             { "scope.me", new[]{
                 "Me only", "Nur ich", "Solo yo", "Só eu", "Solo io", "Moi seulement", "自分のみ", "나만", "仅自己", "Только я" } },
             { "scope.all", new[]{
@@ -944,7 +1064,7 @@ namespace MetalFatiguePatcher
             { "unlock.for", new[]{
                 "For:", "Für:", "Para:", "Para:", "Per:", "Pour :", "対象：", "대상:", "对象：", "Для:" } },
             { "unlock.note", new[]{
-                "Only cross-faction parts are unlocked — your own faction's condition-locked parts still need their normal research.\nAlien parts built during the prebuild phase must be re-researched at a research center afterwards.", "Nur Teile anderer Fraktionen werden freigeschaltet — bedingungsgebundene Teile deiner eigenen Fraktion brauchen weiterhin normale Forschung.\nAlien-Teile, die in der Vorbereitungsphase gebaut werden, müssen danach im Forschungszentrum erneut erforscht werden.", "Solo se desbloquean piezas de otras facciones; las piezas de tu facción con condiciones siguen requiriendo su investigación normal.\nLas piezas alienígenas construidas en la fase de preparación deben reinvestigarse después en un centro de investigación.", "Só se desbloqueiam peças de outras facções; as peças da sua facção com condições ainda precisam da pesquisa normal.\nPeças alienígenas construídas na fase de preparação precisam ser repesquisadas depois num centro de pesquisa.", "Vengono sbloccate solo parti di altre fazioni; le parti della tua fazione con condizioni richiedono ancora la ricerca normale.\nLe parti aliene costruite nella fase di preparazione vanno riricercate dopo in un centro di ricerca.", "Seules les pièces d'autres factions sont débloquées ; les pièces de votre faction soumises à conditions nécessitent toujours leur recherche normale.\nLes pièces alien construites en phase de préparation doivent être recherchées à nouveau ensuite dans un centre de recherche.", "解禁されるのは他勢力のパーツのみです。自勢力の条件付きパーツは通常どおり研究が必要です。\n準備フェイズ中に製造したエイリアンパーツは、その後に研究施設で再研究が必要です。", "다른 진영의 부품만 잠금 해제됩니다 — 자기 진영의 조건부 부품은 여전히 일반 연구가 필요합니다.\n준비 단계에서 제작한 에일리언 부품은 이후 연구소에서 다시 연구해야 합니다.", "仅解锁其他阵营的部件——你自己阵营中带条件的部件仍需正常研究。\n在预备阶段建造的外星部件之后必须在研究中心重新研究。", "Разблокируются только детали других фракций — детали вашей фракции с условиями по-прежнему требуют обычного исследования.\nИнопланетные детали, построенные на этапе подготовки, затем нужно заново исследовать в исследовательском центре." } },
+                "Only parts of other factions are unlocked — your own faction's parts that require a building (e.g. a research center or AI facility) still need that building.\nAlien parts built during the prebuild phase must be re-researched at a research center afterwards.", "Nur Teile anderer Fraktionen werden freigeschaltet — Teile deiner eigenen Fraktion, die ein Gebäude voraussetzen (z. B. Forschungszentrum oder K.I.-Anlage), brauchen weiterhin dieses Gebäude.\nAlien-Teile, die in der Vorbereitungsphase gebaut werden, müssen danach im Forschungszentrum erneut erforscht werden.", "Solo se desbloquean piezas de otras facciones; las piezas de tu facción que requieren un edificio (p. ej. un centro de investigación o una instalación de IA) siguen necesitando ese edificio.\nLas piezas alienígenas construidas en la fase de preparación deben reinvestigarse después en un centro de investigación.", "Só se desbloqueiam peças de outras facções; as peças da sua facção que exigem um edifício (p. ex. um centro de pesquisa ou uma instalação de IA) ainda precisam desse edifício.\nPeças alienígenas construídas na fase de preparação precisam ser repesquisadas depois num centro de pesquisa.", "Vengono sbloccate solo parti di altre fazioni; le parti della tua fazione che richiedono un edificio (es. un centro di ricerca o un impianto IA) necessitano ancora di quell'edificio.\nLe parti aliene costruite nella fase di preparazione vanno riricercate dopo in un centro di ricerca.", "Seules les pièces d'autres factions sont débloquées ; les pièces de votre faction qui nécessitent un bâtiment (p. ex. un centre de recherche ou une installation IA) requièrent toujours ce bâtiment.\nLes pièces alien construites en phase de préparation doivent être recherchées à nouveau ensuite dans un centre de recherche.", "解禁されるのは他勢力のパーツのみです。自勢力のパーツで建物（研究施設やAI施設など）が必要なものは、引き続きその建物が必要です。\n準備フェイズ中に製造したエイリアンパーツは、その後に研究施設で再研究が必要です。", "다른 진영의 부품만 잠금 해제됩니다 — 자기 진영에서 건물(연구소, AI 시설 등)이 필요한 부품은 여전히 그 건물이 있어야 합니다.\n준비 단계에서 제작한 에일리언 부품은 이후 연구소에서 다시 연구해야 합니다.", "仅解锁其他阵营的部件——你自己阵营中需要特定建筑（如研究中心或 AI 设施）的部件仍需建造该建筑。\n在预备阶段建造的外星部件之后必须在研究中心重新研究。", "Разблокируются только детали других фракций — детали вашей фракции, требующие здания (например, исследовательского центра или ИИ-комплекса), по-прежнему нуждаются в этом здании.\nИнопланетные детали, построенные на этапе подготовки, затем нужно заново исследовать в исследовательском центре." } },
             { "tree.superweapons", new[]{
                 "Superweapons", "Superwaffen", "Superarmas", "Superarmas", "Superarmi", "Superarmes", "スーパーウェポン", "슈퍼무기", "超级武器", "Супероружие" } },
             { "note.fogsv", new[]{

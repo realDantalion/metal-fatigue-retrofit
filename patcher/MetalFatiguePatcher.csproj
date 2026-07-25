@@ -8,7 +8,7 @@
     <AssemblyName>MetalFatigueRetrofitPatcher</AssemblyName>
     <RootNamespace>MetalFatiguePatcher</RootNamespace>
     <Product>Metal Fatigue Retrofit</Product>
-    <Version>1.1.1</Version>
+    <Version>1.2.0</Version>
     <Authors>Dantalion</Authors>
     <Company>Dantalion</Company>
     <Copyright>Copyright (C) 2026 Dantalion (github.com/realDantalion) — GNU GPL v3</Copyright>

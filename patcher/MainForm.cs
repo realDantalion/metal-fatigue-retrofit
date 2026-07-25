@@ -28,20 +28,28 @@ namespace MetalFatiguePatcher
         TextBox _pathBox, _log;
         RadioButton _srcAuto, _srcSteam, _srcGog;
         RadioButton _prof2x, _prof4x, _prof8x, _profUnleashed, _profCheats, _profCheatsAll;
-        Label _profDesc, _bannerTitle, _bannerSub, _exeLabel, _compatLabel, _credits, _svStatus;
-        LinkLabel _contactLink, _licenseLink;
+        Label _profDesc, _bannerTitle, _bannerSub, _exeLabel, _compatLabel, _credits, _svStatus, _infoLegacy;
+        Label _infoBuild, _infoVariant, _infoInstalled;   // exe read-out area
+        LinkLabel _contactLink, _licenseLink, _reportLink;
+        PatchData.Installed _lastInstalled;                // what the current exe carries (for the read-out)
+        string _reportKind;                                // "version" | "language" | null — drives the report link
 
         /// <summary>
         /// Where users can report an unsupported build. While this is empty the
         /// "contact us" link stays hidden, so no placeholder URL can ever ship.
         /// </summary>
         const string ContactUrl = "";
+
+        /// <summary>Repository issue tracker — the report link points here (a real URL, unlike
+        /// ContactUrl). A query pre-selects the right template for unknown builds vs unknown
+        /// language patches.</summary>
+        const string IssuesUrl = "https://github.com/realDantalion/metal-fatigue-retrofit/issues";
         GroupBox _srcGroup, _profGroup, _svGroup;
         CheckBox _sharedVision;
 
         // --- 2.0 cheat tab ---
         TabControl _tabs;
-        TabPage _tabPatch, _tabCheats;
+        TabPage _tabPatch, _tabCheats, _tabExperimental;
         GroupBox _cheatGroup, _globalGroup, _unlockGroup;
         Label _scopeNote, _unlockNote, _partsForLabel, _crewsNote;
         RadioButton _scopePlayer, _scopeAll;
@@ -49,8 +57,30 @@ namespace MetalFatiguePatcher
         CheckBox _cheatFog, _cheatBuild, _cheatTurbo, _cheatCrews;
         TreeView _unlockTree;
         bool _treeCascading;   // guards the parent<->child check cascade against recursion
+        // Icon section-list: shown instead of the tree once the game's part icons decode from the
+        // user's OWN files (see GameIcons). _iconToggles != null means we are in icon mode; every
+        // unlock read/write branches on that, and any decode failure just leaves the tree up.
+        FlowLayoutPanel _unlockList;
+        System.Collections.Generic.List<CheckBox> _iconToggles;
+        GameIcons _gameIcons;
+        GameVariant _variant;              // which localised build the icons came from (maps IconIndex)
+        GameVariant.Match _variantMatch;   // last detection result (for the exe-info panel / report)
+        string _iconsPath;                 // the exe path our current icon/variant state reflects
+        readonly System.Collections.Generic.HashSet<string> _collapsed = new System.Collections.Generic.HashSet<string>();
+        Panel _unlockOverlay;                 // full-tab overlay the list pops into on hover
+        System.Windows.Forms.Timer _hoverTimer;
+        System.Windows.Forms.Timer _pulseTimer;
+        bool _listBig;
         Label _svFogNote, _fogSvNote;   // "disabled because ..." notes for the fog/shared-vision clash
         bool _fogSvSyncing;    // guards the fog <-> shared-vision mutual-exclusion cascade
+
+        // --- experimental tab (features that change core behaviour and may break things) ---
+        GroupBox _expWarnGroup, _expSpeedGroup, _expSoonGroup;
+        Label _expWarn, _expSoon;
+        CheckBox _expSpeed;
+        TrackBar _expSpeedBar;
+        Label _expSpeedFactorLbl, _expSpeedValue, _expSpeedExample, _expSpeedForLbl, _expSpeedNote;
+        RadioButton _expSpeedPlayer, _expSpeedAll;
         readonly ToolTip _tips = new ToolTip();
         Button _browseBtn, _patchBtn, _restoreBtn, _exitBtn;
         Panel[] _flagCells;
@@ -63,7 +93,7 @@ namespace MetalFatiguePatcher
         /// While it is absent, cheat mode deliberately shows a loud missing-texture
         /// placeholder (see MakeMissingMascot) so the gap cannot be shipped unnoticed.
         /// </summary>
-        Image _logo, _logoCheat;
+        Image _logo, _logoCheat, _logoExperimental;
         Image _missingMascot;
 
         /// <summary>
@@ -97,12 +127,14 @@ namespace MetalFatiguePatcher
         /// <summary>Path whose installed shared-vision state we already mirrored into the box.</summary>
         string _svSyncedPath;
 
-        // True while the banner shows its cheat theme (driven by the active tab).
-        bool _cheatUnlocked;
+        // The banner theme is driven by the active tab: blue (Patch), orange (Cheats),
+        // Neuropa faction green (Experimental).
+        enum BannerTheme { Patch, Cheats, Experimental }
+        BannerTheme _bannerTheme = BannerTheme.Patch;
 
         public MainForm()
         {
-            ClientSize = new Size(760, 744);
+            ClientSize = new Size(760, 782);
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
             MaximizeBox = false;
@@ -110,17 +142,24 @@ namespace MetalFatiguePatcher
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             _logo = LoadEmbedded("MetalFatiguePatcher.logo.png");
             _logoCheat = LoadEmbedded("MetalFatiguePatcher.logo_cheat.png");   // optional
+            _logoExperimental = LoadEmbedded("MetalFatiguePatcher.logo_experimental.png");   // optional (Neuropa mascot)
 
             BuildBanner();
 
             // Tabs: "Patch" (the bug-fix, unchanged) and "Cheats" (2.0 — individually selectable).
-            _tabs = new TabControl { Location = new Point(12, 126), Size = new Size(736, 396) };
+            _tabs = new TabControl { Location = new Point(12, 126), Size = new Size(736, 434) };
             _tabPatch = new TabPage();
             _tabCheats = new TabPage();
+            _tabExperimental = new TabPage();
             _tabs.TabPages.Add(_tabPatch);
             _tabs.TabPages.Add(_tabCheats);
-            // The banner turns to cheat mode (orange + cheat mascot) on the Cheats tab.
-            _tabs.SelectedIndexChanged += (s, e) => SetCheatBanner(_tabs.SelectedTab == _tabCheats);
+            _tabs.TabPages.Add(_tabExperimental);
+            // The banner theme follows the active tab: blue (Patch), orange (Cheats),
+            // Neuropa faction green (Experimental).
+            _tabs.SelectedIndexChanged += (s, e) => SetBannerTheme(
+                _tabs.SelectedTab == _tabCheats       ? BannerTheme.Cheats :
+                _tabs.SelectedTab == _tabExperimental ? BannerTheme.Experimental :
+                                                        BannerTheme.Patch);
             Controls.Add(_tabs);
             var tabPatch = _tabPatch;
             var tabCheats = _tabCheats;
@@ -129,7 +168,8 @@ namespace MetalFatiguePatcher
 
             // 1. Game source — radios, the MFatigue.exe path chooser, and the
             // compatibility status all live in this one frame.
-            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 118) };
+            // 194 = the three-line worst case (label 82+50, then three 17px info rows, then padding).
+            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 194) };
             _srcAuto  = new RadioButton { Checked = true, Location = new Point(14, 24), AutoSize = true };
             _srcSteam = new RadioButton { Text = "Steam", Location = new Point(220, 24), AutoSize = true };
             _srcGog   = new RadioButton { Text = "GOG",   Location = new Point(330, 24), AutoSize = true };
@@ -138,25 +178,47 @@ namespace MetalFatiguePatcher
                 rb.CheckedChanged += (s, e) => { if (((RadioButton)s).Checked) Detect(); };
             // MFatigue.exe path chooser — second row.
             _exeLabel  = new Label   { Location = new Point(14, 59), AutoSize = true };
-            _pathBox   = new TextBox { Location = new Point(110, 54), Size = new Size(494, 24) };
-            _browseBtn = new Button  { Location = new Point(612, 53), Size = new Size(108, 26) };
+            // The frame is 708 wide and clips its children, so nothing may reach past 694
+            // (= 708 - the same 14px margin the left edge uses). The Browse button was the
+            // visible casualty: it ended at 720 and lost its right border to the frame.
+            _pathBox   = new TextBox { Location = new Point(110, 54), Size = new Size(468, 24) };
+            _browseBtn = new Button  { Location = new Point(586, 53), Size = new Size(108, 26) };
             _browseBtn.Click += (s, e) => Browse();
             _pathBox.TextChanged += (s, e) => UpdateCompat();
-            // Compatibility status (+ optional contact link) — third row.
-            _compatLabel = new Label { Location = new Point(14, 90), Size = new Size(706, 20), AutoEllipsis = true };
-            _contactLink = new LinkLabel
+            // Read-out area: everything we can learn about the chosen exe. Populated by UpdateCompat.
+            // Row 1 = compatibility status (coloured) + a report link when we can't fully support it.
+            // The status line grows to fit its text — up to three lines, which is what the longest
+            // message (patched by a superseded release) needs in German/French/Russian/Japanese at
+            // the narrower 472px width the report link leaves. A status the user has to act on is
+            // the worst thing to truncate. The frame reserves that worst case permanently and the
+            // rows below follow the label, so short messages leave the slack at the bottom of the
+            // frame instead of a hole in the middle, and nothing outside the frame ever moves.
+            _compatLabel = new Label { Location = new Point(14, 82), Size = new Size(560, 18), AutoEllipsis = true };
+            _reportLink = new LinkLabel
             {
-                Location = new Point(454, 90), Size = new Size(266, 20),
-                TextAlign = ContentAlignment.MiddleRight, Visible = false
+                Location = new Point(494, 82), Size = new Size(200, 18),
+                TextAlign = ContentAlignment.MiddleRight, Visible = false,
+                LinkColor = Color.FromArgb(80, 130, 200)
             };
-            _contactLink.LinkClicked += (s, e) =>
-            {
-                try { System.Diagnostics.Process.Start(ContactUrl); } catch { }
-            };
+            _reportLink.LinkClicked += (s, e) => OpenReport();
+            // Rows 2-4 = build, language variant, and what is already installed. Caption + value
+            // are baked into each label's text in UpdateCompat (localised).
+            // Tops here are the one-line case; ReflowReadout repositions them to follow the label.
+            _infoBuild     = new Label { Location = new Point(14, 104), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
+            _infoVariant   = new Label { Location = new Point(14, 121), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
+            _infoInstalled = new Label { Location = new Point(14, 138), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
+            // Fourth row, shown only when an older release's layout is detected AND a clean backup
+            // exists — i.e. the case that repairs itself, so this is advice, not a warning. It can
+            // never coincide with the three-line compat message, which covers the no-backup case.
+            _infoLegacy    = new Label { Location = new Point(14, 155), Size = new Size(680, 16), Visible = false,
+                                         ForeColor = Color.FromArgb(176, 108, 12), Font = new Font("Segoe UI", 8.25f) };
+            // Kept only so the old easter-egg/detection code still compiles; never shown.
+            _contactLink = new LinkLabel { Visible = false };
             _srcGroup.Controls.AddRange(new Control[] {
-                _srcAuto, _srcSteam, _srcGog, _exeLabel, _pathBox, _browseBtn, _compatLabel, _contactLink });
+                _srcAuto, _srcSteam, _srcGog, _exeLabel, _pathBox, _browseBtn,
+                _compatLabel, _reportLink, _infoBuild, _infoVariant, _infoInstalled, _infoLegacy });
             tabPatch.Controls.Add(_srcGroup);
-            y += 128;
+            y += 204;
 
             // 2. Version
             _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 100) };
@@ -191,6 +253,7 @@ namespace MetalFatiguePatcher
             tabPatch.Controls.Add(_svGroup);
 
             BuildCheatTab(tabCheats);
+            BuildExperimentalTab(_tabExperimental);
 
             // everything below the tabs
             y = 126 + _tabs.Height + 10;
@@ -199,9 +262,12 @@ namespace MetalFatiguePatcher
             _patchBtn = new Button
             {
                 Location = new Point(12, y), Size = new Size(140, 34),
-                BackColor = Color.FromArgb(60, 120, 200), ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+                ForeColor = Color.White, FlatStyle = FlatStyle.Flat
             };
             _patchBtn.Click += (s, e) => DoPatch();
+            // Colour follows the enabled state, so hook it here rather than at every Enabled = ...
+            _patchBtn.EnabledChanged += (s, e) => StylePatchButton();
+            StylePatchButton();
             _restoreBtn = new Button { Location = new Point(160, y), Size = new Size(230, 34) };
             _restoreBtn.Click += (s, e) => DoRestore();
             _exitBtn = new Button { Location = new Point(628, y), Size = new Size(120, 34) };
@@ -256,7 +322,7 @@ namespace MetalFatiguePatcher
             // Scope: player only vs everyone (AI included). Parts/superweapon unlocks are always
             // local-player only, so the scope governs the resource/build cheats.
             // Scoped cheats — the "me only / all players" switch governs exactly these.
-            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 84), ForeColor = orange };
+            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 90), ForeColor = orange };
             _scopePlayer = new RadioButton { Checked = true, Location = new Point(14, 20), AutoSize = true };
             _scopeAll = new RadioButton { Location = new Point(120, 20), AutoSize = true };
             _cheatBuild = new CheckBox { Location = new Point(14, 48), AutoSize = true };
@@ -270,14 +336,14 @@ namespace MetalFatiguePatcher
             };
             _scopeNote = new Label
             {
-                Location = new Point(300, 22), Size = new Size(400, 24), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+                Location = new Point(14, 68), Size = new Size(690, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
             };
             _cheatFog.CheckedChanged += (s, e) => UpdateSharedVisionState();
             _cheatGroup.Controls.AddRange(new Control[] { _scopePlayer, _scopeAll, _scopeNote, _cheatFog, _cheatBuild, _cheatTurbo, _fogSvNote });
             tab.Controls.Add(_cheatGroup);
 
             // Always-global cheats — no scope, so they live in their own little section.
-            _globalGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 48), ForeColor = orange };
+            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 48), ForeColor = orange };
             _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
             // The crews cheat includes the crew-name fix, so it also lifts the ~50 combot limit even
             // on a non-Maximum version. Say so, since that overlaps with what the Version tab does.
@@ -289,7 +355,7 @@ namespace MetalFatiguePatcher
             tab.Controls.Add(_globalGroup);
 
             // Unlock tree: combot parts (by faction) + superweapons, each a checkable node.
-            _unlockGroup = new GroupBox { Location = new Point(12, 158), Size = new Size(708, 200), ForeColor = orange };
+            _unlockGroup = new GroupBox { Location = new Point(12, 160), Size = new Size(708, 200), ForeColor = orange };
             // Parts get their own scope: the AI does use foreign parts (confirmed in testing), so
             // "all players" is a real option here, separate from the resource-cheat scope above.
             _partsForLabel = new Label { Location = new Point(14, 22), AutoSize = true, ForeColor = Color.DimGray };
@@ -297,7 +363,7 @@ namespace MetalFatiguePatcher
             _partsScopeAll = new RadioButton { Location = new Point(140, 20), AutoSize = true };
             _unlockTree = new TreeView
             {
-                Location = new Point(14, 46), Size = new Size(680, 110),
+                Location = new Point(14, 46), Size = new Size(680, 86),
                 CheckBoxes = true, ShowRootLines = true, HideSelection = true
             };
             BuildUnlockTree();
@@ -306,15 +372,169 @@ namespace MetalFatiguePatcher
                 if (_treeCascading) return;
                 _treeCascading = true;
                 foreach (TreeNode c in e.Node.Nodes) c.Checked = e.Node.Checked;
+                if (e.Node.Tag is uint addr) SyncSharedDescriptor(addr, e.Node.Checked, e.Node);
                 _treeCascading = false;
             };
             // Two things worth stating up front (both are "won't fix", just expectations):
+            // Tall enough for the longest translation: the two sentences can wrap to ~4 lines in
+            // German/Spanish/etc. A fixed 2-line box clipped the second (alien) sentence there.
             _unlockNote = new Label
             {
-                Location = new Point(14, 160), Size = new Size(680, 32), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+                Location = new Point(14, 136), Size = new Size(680, 62), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
             };
-            _unlockGroup.Controls.AddRange(new Control[] { _partsForLabel, _partsScopePlayer, _partsScopeAll, _unlockTree, _unlockNote });
+            // Icon section-list occupies the same spot as the tree; hidden until icons load.
+            _unlockList = new FlowLayoutPanel
+            {
+                Location = new Point(14, 44), Size = new Size(680, 124),
+                FlowDirection = FlowDirection.TopDown, WrapContents = false,
+                AutoScroll = true, Visible = false, BackColor = Color.FromArgb(30, 30, 30)
+            };
+            _unlockGroup.Controls.AddRange(new Control[] { _partsForLabel, _partsScopePlayer, _partsScopeAll, _unlockTree, _unlockList, _unlockNote });
             tab.Controls.Add(_unlockGroup);
+
+            // Hover-to-enlarge: the cramped list pops into this full-tab overlay while the mouse is
+            // over it, and snaps back when the cursor leaves (checked by a small timer, so moving
+            // across child toggles doesn't count as "leaving").
+            _unlockOverlay = new Panel
+            {
+                Location = new Point(8, 6), Size = new Size(714, 358), Visible = false,
+                BackColor = Color.FromArgb(26, 26, 30), BorderStyle = BorderStyle.FixedSingle
+            };
+            tab.Controls.Add(_unlockOverlay);
+            _hoverTimer = new System.Windows.Forms.Timer { Interval = 160 };
+            _hoverTimer.Tick += (s, e) =>
+            {
+                if (!_unlockOverlay.RectangleToScreen(_unlockOverlay.ClientRectangle).Contains(Cursor.Position)) HideBig();
+            };
+            _unlockList.MouseEnter += (s, e) => ShowBig();
+
+            // Gentle pulse of the selected toggles' borders.
+            _pulseTimer = new System.Windows.Forms.Timer { Interval = 33 };
+            _pulseTimer.Tick += (s, e) =>
+            {
+                if (_iconToggles == null) return;
+                IconToggle.Advance();
+                foreach (var cb in _iconToggles) if (cb.Checked) cb.Invalidate();
+            };
+            _pulseTimer.Start();
+        }
+
+        /// <summary>
+        /// The "Experimental" tab: a home for features that touch core game behaviour and may
+        /// break saves / multiplayer. Framed in the Neuropa faction green. First resident is the
+        /// movement-speed multiplier (see PatchData.MoveSpeedSites).
+        /// </summary>
+        void BuildExperimentalTab(TabPage tab)
+        {
+            var green = Color.FromArgb(36, 132, 70);   // Neuropa faction green (#3AB451 family)
+
+            // Read-first warning — these features can damage saved games / multiplayer.
+            _expWarnGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 84), ForeColor = green };
+            _expWarn = new Label
+            {
+                Location = new Point(14, 22), Size = new Size(684, 56), ForeColor = Color.FromArgb(150, 96, 20)
+            };
+            _expWarnGroup.Controls.Add(_expWarn);
+            tab.Controls.Add(_expWarnGroup);
+
+            // --- movement speed ---------------------------------------------------------------
+            _expSpeedGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 186), ForeColor = green };
+            _expSpeed = new CheckBox { Location = new Point(14, 22), AutoSize = true };
+
+            _expSpeedFactorLbl = new Label { Location = new Point(34, 62), AutoSize = true, ForeColor = Color.DimGray };
+            // Discrete notches rather than a free slider: each stop is a factor we can reason about,
+            // and it maps 1:1 to the float baked into the patch.
+            _expSpeedBar = new TrackBar
+            {
+                Location = new Point(96, 54), Size = new Size(300, 45),
+                Minimum = 0, Maximum = PatchData.SpeedFactors.Length - 1,
+                TickFrequency = 1, SmallChange = 1, LargeChange = 1, Value = 1
+            };
+            _expSpeedValue = new Label
+            {
+                Location = new Point(406, 60), Size = new Size(70, 26), ForeColor = green,
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
+            };
+            _expSpeedExample = new Label
+            {
+                Location = new Point(482, 64), Size = new Size(216, 30), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f)
+            };
+            _expSpeedBar.ValueChanged += (s, e) => UpdateSpeedLabels();
+
+            _expSpeedForLbl = new Label { Location = new Point(34, 112), AutoSize = true, ForeColor = Color.DimGray };
+            _expSpeedPlayer = new RadioButton { Checked = true, Location = new Point(80, 110), AutoSize = true };
+            _expSpeedAll = new RadioButton { Location = new Point(180, 110), AutoSize = true };
+
+            _expSpeedNote = new Label
+            {
+                Location = new Point(14, 140), Size = new Size(684, 40), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f)
+            };
+
+            // The whole feature is off until it's ticked, so the knobs follow the checkbox.
+            _expSpeed.CheckedChanged += (s, e) => UpdateSpeedEnabled();
+
+            _expSpeedGroup.Controls.AddRange(new Control[]
+            {
+                _expSpeed, _expSpeedFactorLbl, _expSpeedBar, _expSpeedValue, _expSpeedExample,
+                _expSpeedForLbl, _expSpeedPlayer, _expSpeedAll, _expSpeedNote
+            });
+            tab.Controls.Add(_expSpeedGroup);
+
+            // Slim footer: more experimental features are expected here later.
+            _expSoonGroup = new GroupBox { Location = new Point(12, 296), Size = new Size(708, 62), ForeColor = green };
+            _expSoon = new Label
+            {
+                Location = new Point(14, 24), Size = new Size(684, 30), ForeColor = Color.DimGray
+            };
+            _expSoonGroup.Controls.Add(_expSoon);
+            tab.Controls.Add(_expSoonGroup);
+
+            UpdateSpeedEnabled();
+        }
+
+        /// <summary>The multiplier the speed slider currently sits on.</summary>
+        double SpeedFactor => PatchData.SpeedFactors[
+            Math.Min(Math.Max(_expSpeedBar.Value, 0), PatchData.SpeedFactors.Length - 1)];
+
+        /// <summary>Snap the slider to the ladder entry nearest an arbitrary factor (e.g. one read
+        /// back out of an already-patched exe).</summary>
+        void SetSpeedFactor(double f)
+        {
+            int best = 1;
+            double bestD = double.MaxValue;
+            for (int i = 0; i < PatchData.SpeedFactors.Length; i++)
+            {
+                double d = Math.Abs(PatchData.SpeedFactors[i] - f);
+                if (d < bestD) { bestD = d; best = i; }
+            }
+            _expSpeedBar.Value = best;
+        }
+
+        void UpdateSpeedLabels()
+        {
+            if (_expSpeedValue == null) return;
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            double f = SpeedFactor;
+            _expSpeedValue.Text = f.ToString("0.0", inv) + "×";
+            _expSpeedExample.Text = string.Format(inv, Lang.T("exp.speed.example"),
+                                                  f.ToString("0.0", inv),
+                                                  (28.0 * f).ToString("0.#", inv),
+                                                  (15.5 * f).ToString("0.#", inv));
+        }
+
+        void UpdateSpeedEnabled()
+        {
+            if (_expSpeed == null) return;
+            bool on = _expSpeed.Checked;
+            _expSpeedFactorLbl.Enabled = on;
+            _expSpeedBar.Enabled = on;
+            _expSpeedValue.Enabled = on;
+            _expSpeedExample.Enabled = on;
+            _expSpeedForLbl.Enabled = on;
+            _expSpeedPlayer.Enabled = on;
+            _expSpeedAll.Enabled = on;
         }
 
         void BuildUnlockTree()
@@ -353,15 +573,295 @@ namespace MetalFatiguePatcher
             }
         }
 
-        /// <summary>Collect the descriptor addresses of every checked part/superweapon leaf.</summary>
+        /// <summary>Collect the descriptor addresses of every checked part/superweapon.</summary>
         System.Collections.Generic.List<uint> GatherUnlockAddrs()
         {
             var addrs = new System.Collections.Generic.List<uint>();
-            foreach (TreeNode top in _unlockTree.Nodes)
-                foreach (TreeNode leaf in top.Nodes)
-                    if (leaf.Checked && leaf.Tag is uint a)
-                        addrs.Add(a);
+            if (_iconToggles != null)   // icon mode
+            {
+                foreach (var cb in _iconToggles)
+                    if (cb.Checked && cb.Tag is uint a) addrs.Add(a);
+            }
+            else                        // tree fallback
+            {
+                foreach (TreeNode top in _unlockTree.Nodes)
+                    foreach (TreeNode leaf in top.Nodes)
+                        if (leaf.Checked && leaf.Tag is uint a)
+                            addrs.Add(a);
+            }
             return addrs;
+        }
+
+        // ---------- icon section-list (shown instead of the tree when GameIcons decodes) ----------
+
+        /// <summary>Try to load the game's part icons from the chosen exe's folder and switch the
+        /// unlock UI from the text tree to the icon section-list. Any failure keeps the tree.</summary>
+        void EnsureIcons(string exePath)
+        {
+            // Re-read whenever the exe path changes (e.g. switching the Steam/GOG source), so an
+            // English install and a German-patched one show their own icons. Same path -> no work.
+            if (string.IsNullOrWhiteSpace(exePath) || exePath == _iconsPath) return;
+            _iconsPath = exePath;
+
+            var gi = GameIcons.TryLoad(exePath);
+            var match = gi != null ? GameVariant.Detect(gi) : null;
+
+            if (gi == null || match == null || match.Variant == null)
+            {
+                // Undecodable or an unknown/mismatched build: fall back to the text tree so we never
+                // show wrong icons. The exe-info panel surfaces this + a report link.
+                _variantMatch = match;
+                _gameIcons = null;
+                _variant = null;
+                if (_iconToggles != null) ShowTreeView();   // we were in icon mode -> revert
+                return;
+            }
+
+            _gameIcons = gi;
+            _variant = match.Variant;
+            _variantMatch = match;
+            BuildUnlockList();
+            _unlockTree.Visible = false;
+            _unlockList.Visible = true;
+            _unlockNote.Location = new Point(14, 172);   // list is taller than the tree was
+            _unlockNote.Size = new Size(680, 26);
+        }
+
+        /// <summary>Switch the unlock UI back to the plain text tree (unknown build / decode failure).</summary>
+        void ShowTreeView()
+        {
+            _iconToggles = null;
+            BuildUnlockTree();
+            _unlockList.Visible = false;
+            _unlockTree.Visible = true;
+            _unlockNote.Location = new Point(14, 136);   // tree layout
+            _unlockNote.Size = new Size(680, 62);
+        }
+
+        /// <summary>Language switch / initial fill: rebuild whichever unlock view is active.</summary>
+        void RebuildUnlockView()
+        {
+            if (_gameIcons != null) BuildUnlockList();
+            else BuildUnlockTree();
+        }
+
+        /// <summary>A scaled copy of a faction's icon at the given catalogue index, or null.</summary>
+        Image IconFor(string faction, int index, int size)
+        {
+            // Hedoth has no own structures file, but the alien icons live in every faction file,
+            // so borrow them from MilAgro.
+            var src = faction == "Hedoth" ? "MilAgro" : faction;
+            var list = _gameIcons?.Faction(src);
+            if (list == null) return null;
+            // Translate the canonical (English) catalogue index into this build's file index; a
+            // localisation may have dropped the icon (-1) or the list may be short.
+            int fi = _variant != null ? _variant.MapIcon(index) : index;
+            if (fi < 0 || fi >= list.Count) return null;
+            try
+            {
+                var bmp = list[fi];
+                var box = GameIcons.OpaqueBounds(bmp);   // crop off the transparent right/bottom padding
+                var outp = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+                using (var g = Graphics.FromImage(outp))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(bmp, new Rectangle(0, 0, size, size), box, GraphicsUnit.Pixel);
+                }
+                return outp;
+            }
+            catch { return null; }
+        }
+
+        /// <summary>One toggle button for a part/superweapon: its icon, or a text fallback.</summary>
+        CheckBox MakeToggle(string faction, int iconIndex, uint addr, string name, bool @checked)
+        {
+            var cb = new IconToggle
+            {
+                Size = new Size(54, 54), Margin = new Padding(3),
+                Tag = addr, Checked = @checked, Icon = IconFor(faction, iconIndex, 54)
+            };
+            if (cb.Icon == null) { cb.Text = name; cb.Font = new Font("Segoe UI", 7f); }   // text fallback when no icon
+            _tips.SetToolTip(cb, name);
+            // Attached after the initializer set Checked, so building the list never fires this.
+            cb.CheckedChanged += (s, e) =>
+            {
+                if (_treeCascading) return;
+                _treeCascading = true;
+                SyncSharedDescriptor(addr, ((CheckBox)s).Checked, s);
+                _treeCascading = false;
+            };
+            _iconToggles.Add(cb);
+            return cb;
+        }
+
+        /// <summary>Keep the twins of a shared descriptor in step. A few parts are listed under two
+        /// factions but are a single class in the game — the JetPack torso appears under MilAgro and
+        /// Neuropa yet is one descriptor (CJetPackTorso, 0x5731b0). Unlocking is per descriptor, so
+        /// the twins cannot be toggled apart; mirroring them is honest about that instead of letting
+        /// one box claim a state the game will not honour.</summary>
+        void SyncSharedDescriptor(uint addr, bool chk, object origin)
+        {
+            if (_iconToggles != null)   // icon mode
+            {
+                foreach (var cb in _iconToggles)
+                    if (!ReferenceEquals(cb, origin) && cb.Tag is uint a && a == addr && cb.Checked != chk)
+                        cb.Checked = chk;
+                return;
+            }
+            foreach (TreeNode f in _unlockTree.Nodes)
+                foreach (TreeNode n in f.Nodes)
+                    if (!ReferenceEquals(n, origin) && n.Tag is uint a && a == addr && n.Checked != chk)
+                        n.Checked = chk;
+        }
+
+        /// <summary>Populate the icon section-list (collapsible faction sections) from PartsData +
+        /// the decoded icons, keeping ticks and collapse state.</summary>
+        void BuildUnlockList()
+        {
+            var wasChecked = new System.Collections.Generic.HashSet<uint>(GatherUnlockAddrs());
+            _iconToggles = new System.Collections.Generic.List<CheckBox>();
+            var orange = Color.FromArgb(200, 130, 40);
+            int rowW = 654;
+
+            _unlockList.SuspendLayout();
+            _unlockList.Controls.Clear();
+
+            // A collapsible section: one custom-drawn header (chevron + optional faction emblem +
+            // title) that shows/hides its body controls. Single control + MouseUp = robust clicks
+            // (Click would drop every 2nd rapid press to DoubleClick); the FlowLayoutPanel skips
+            // hidden children, so hiding them truly collapses the space.
+            void AddSection(string key, string title, Image emblem, System.Action<System.Collections.Generic.List<Control>> buildBody)
+            {
+                int hh = emblem != null ? 30 : 24;
+                var header = new Panel { Width = 340, Height = hh, Margin = new Padding(2, 6, 2, 2), Cursor = Cursors.Hand };
+                header.Paint += (s, e) =>
+                {
+                    var gg = e.Graphics;
+                    using (var f = new Font("Segoe UI", 10f, FontStyle.Bold))
+                    {
+                        gg.DrawString(_collapsed.Contains(key) ? "▶" : "▼", f, Brushes.Gainsboro, 2, (hh - 19) / 2f);
+                        int tx = 24;
+                        if (emblem != null) { gg.DrawImage(emblem, tx, 2, 26, 26); tx += 32; }
+                        gg.DrawString(title, f, Brushes.Gainsboro, tx, (hh - 19) / 2f);
+                    }
+                };
+                _unlockList.Controls.Add(header);
+                var body = new System.Collections.Generic.List<Control>();
+                buildBody(body);
+                foreach (var c in body) { c.Visible = !_collapsed.Contains(key); _unlockList.Controls.Add(c); }
+                header.MouseUp += (s, e) =>
+                {
+                    if (e.Button != MouseButtons.Left) return;
+                    bool now = !_collapsed.Contains(key);
+                    if (now) _collapsed.Add(key); else _collapsed.Remove(key);
+                    foreach (var c in body) c.Visible = !now;
+                    header.Invalidate();
+                };
+            }
+
+            foreach (var faction in PartsData.Factions)
+            {
+                bool any = false;
+                foreach (var pp in PartsData.Parts) if (pp.Faction == faction) { any = true; break; }
+                if (!any) continue;
+                string fac = faction;
+                AddSection("F:" + fac, FactionLabel(fac), _gameIcons?.Emblem(fac), body =>
+                {
+                    foreach (var slot in PartsData.Slots)
+                    {
+                        var parts = new System.Collections.Generic.List<PartInfo>();
+                        foreach (var p in PartsData.Parts) if (p.Faction == fac && p.Slot == slot) parts.Add(p);
+                        if (parts.Count == 0) continue;
+
+                        var head = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, WrapContents = false, Margin = new Padding(14, 4, 2, 0), Cursor = Cursors.Hand };
+                        int basicIdx = slot == "Arm" ? 9 : slot == "Legs" ? 48 : 27;   // BasicHand / BasicLegs / BasicTorso
+                        var bimg = fac == "Hedoth" ? null : IconFor(fac, basicIdx, 22);
+                        if (bimg != null) head.Controls.Add(new PictureBox { Image = bimg, Size = new Size(22, 22), SizeMode = PictureBoxSizeMode.Zoom, Margin = new Padding(0, 1, 6, 0), Cursor = Cursors.Hand });
+                        head.Controls.Add(new Label { Text = Lang.T("slot." + slot.ToLowerInvariant()), AutoSize = true, ForeColor = orange, Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), Margin = new Padding(0, 4, 0, 0), Cursor = Cursors.Hand });
+                        body.Add(head);
+
+                        var row = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoSize = true, Width = rowW, Margin = new Padding(18, 0, 0, 4) };
+                        var slotToggles = new System.Collections.Generic.List<CheckBox>();
+                        foreach (var p in parts)
+                        {
+                            var t = MakeToggle(p.Faction, p.IconIndex, p.Addr, p.Name, wasChecked.Contains(p.Addr));
+                            slotToggles.Add(t); row.Controls.Add(t);
+                        }
+                        body.Add(row);
+
+                        // Clicking the slot sub-header toggles the whole slot (all on -> all off, else all on).
+                        // MouseUp, not Click: WinForms turns every 2nd rapid press on the same spot into a
+                        // DoubleClick, which would swallow half the clicks -> "same pixel, sometimes works".
+                        MouseEventHandler toggleSlot = (s, e) =>
+                        {
+                            if (e.Button != MouseButtons.Left) return;
+                            bool allOn = slotToggles.Count > 0;
+                            foreach (var t in slotToggles) if (!t.Checked) { allOn = false; break; }
+                            foreach (var t in slotToggles) t.Checked = !allOn;
+                        };
+                        head.MouseUp += toggleSlot;
+                        foreach (Control chld in head.Controls) chld.MouseUp += toggleSlot;
+                    }
+                });
+            }
+
+            AddSection("SW", Lang.T("tree.superweapons"), null, body =>
+            {
+                var row = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, WrapContents = true, AutoSize = true, Width = rowW, Margin = new Padding(18, 0, 0, 4) };
+                foreach (var sw in PartsData.Superweapons) row.Controls.Add(MakeToggle(sw.Faction, sw.IconIndex, sw.Addr, sw.Name, wasChecked.Contains(sw.Addr)));
+                body.Add(row);
+            });
+
+            _unlockList.ResumeLayout();
+            AttachHover(_unlockList);   // hovering ANY control enlarges the list, so clicks are consistent
+            if (_listBig) SetRowWidths(_unlockList.ClientSize.Width - 8);
+        }
+
+        /// <summary>Wire MouseEnter -> ShowBig on every control in the list so the enlarge is
+        /// consistent no matter which part of the list the cursor approaches.</summary>
+        void AttachHover(Control c)
+        {
+            foreach (Control ch in c.Controls)
+            {
+                ch.MouseEnter += (s, e) => ShowBig();
+                AttachHover(ch);
+            }
+        }
+
+        /// <summary>Pop the list into the full-tab overlay (bigger, easier to see) while hovered.</summary>
+        void ShowBig()
+        {
+            if (_listBig || _gameIcons == null || _unlockList == null) return;
+            _listBig = true;
+            _unlockGroup.Controls.Remove(_unlockList);
+            _unlockOverlay.Controls.Add(_unlockList);
+            _unlockList.Location = new Point(6, 6);
+            _unlockList.Size = new Size(_unlockOverlay.ClientSize.Width - 12, _unlockOverlay.ClientSize.Height - 12);
+            SetRowWidths(_unlockList.ClientSize.Width - 8);
+            _unlockOverlay.Visible = true;
+            _unlockOverlay.BringToFront();
+            _hoverTimer.Start();
+        }
+
+        /// <summary>Snap the list back into its small spot when the cursor leaves the overlay.</summary>
+        void HideBig()
+        {
+            if (!_listBig) return;
+            _listBig = false;
+            _hoverTimer.Stop();
+            _unlockOverlay.Controls.Remove(_unlockList);
+            _unlockOverlay.Visible = false;
+            _unlockGroup.Controls.Add(_unlockList);
+            _unlockList.Location = new Point(14, 44);
+            _unlockList.Size = new Size(680, 124);
+            SetRowWidths(654);
+            _unlockList.BringToFront();
+        }
+
+        void SetRowWidths(int w)
+        {
+            foreach (Control c in _unlockList.Controls)
+                if (c is FlowLayoutPanel f && f.WrapContents) f.Width = w;
         }
 
         // ---------- banner ----------
@@ -371,11 +871,19 @@ namespace MetalFatiguePatcher
             _banner = new Panel { Location = new Point(0, 0), Size = new Size(ClientSize.Width, 116) };
             _banner.Paint += (s, e) =>
             {
-                var top = _cheatUnlocked ? Color.FromArgb(120, 62, 8)   : Color.FromArgb(24, 34, 54);
-                var bot = _cheatUnlocked ? Color.FromArgb(206, 126, 22) : Color.FromArgb(44, 62, 96);
+                Color top, bot, line;
+                switch (_bannerTheme)
+                {
+                    case BannerTheme.Cheats:   // orange
+                        top = Color.FromArgb(120, 62, 8); bot = Color.FromArgb(206, 126, 22); line = Color.FromArgb(250, 196, 80); break;
+                    case BannerTheme.Experimental:   // Neuropa faction green (sampled from storyneuropa.JPG: #3AB451)
+                        top = Color.FromArgb(12, 52, 28); bot = Color.FromArgb(40, 132, 70); line = Color.FromArgb(58, 180, 81); break;
+                    default:                   // blue
+                        top = Color.FromArgb(24, 34, 54); bot = Color.FromArgb(44, 62, 96); line = Color.FromArgb(80, 110, 160); break;
+                }
                 using (var b = new LinearGradientBrush(_banner.ClientRectangle, top, bot, 90f))
                     e.Graphics.FillRectangle(b, _banner.ClientRectangle);
-                using (var p = new Pen(_cheatUnlocked ? Color.FromArgb(250, 196, 80) : Color.FromArgb(80, 110, 160), 2))
+                using (var p = new Pen(line, 2))
                     e.Graphics.DrawLine(p, 0, _banner.Height - 1, _banner.Width, _banner.Height - 1);
             };
 
@@ -453,31 +961,84 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
-        /// The banner follows the active tab: on the Cheats tab it turns orange and shows the
-        /// cheat mascot; on the Patch tab it is the normal blue banner. (This replaced the old
-        /// click-the-robot easter egg.)
+        /// The banner follows the active tab: blue on Patch, orange on Cheats, Neuropa-green on
+        /// Experimental. Only the subtitle, its colour, the mascot and the gradient change; the
+        /// title stays "Metal Fatigue Retrofit" throughout. (This replaced the old easter egg.)
         /// </summary>
-        void SetCheatBanner(bool cheat)
+        void SetBannerTheme(BannerTheme theme)
         {
-            if (_cheatUnlocked == cheat) return;
-            _cheatUnlocked = cheat;
-            // Title stays "Metal Fatigue Retrofit" in both modes; only the subtitle + theme change.
+            if (_bannerTheme == theme) return;
+            _bannerTheme = theme;
             _bannerTitle.Text = Lang.T("banner.title");
-            _bannerSub.Text = Lang.T(cheat ? "banner.cheatSub" : "banner.sub");
-            _bannerSub.ForeColor = cheat ? Color.FromArgb(255, 236, 190) : Color.FromArgb(185, 200, 225);
-            // Swap in the alternate mascot. If it was never supplied, show a loud missing-texture
-            // placeholder instead of silently keeping the normal one.
-            if (_mascot != null)
+            string subKey; Color subColor;
+            switch (theme)
             {
-                if (!cheat) _mascot.Image = _logo;
-                else if (_logoCheat != null) _mascot.Image = _logoCheat;
-                else
-                {
-                    _mascot.Image = _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
-                    Log("[dev] logo_cheat.png is missing — showing placeholder mascot.");
-                }
+                case BannerTheme.Cheats:
+                    subKey = "banner.cheatSub"; subColor = Color.FromArgb(255, 236, 190); break;
+                case BannerTheme.Experimental:
+                    subKey = "banner.expSub";   subColor = Color.FromArgb(205, 245, 214); break;
+                default:
+                    subKey = "banner.sub";      subColor = Color.FromArgb(185, 200, 225); break;
             }
+            _bannerSub.Text = Lang.T(subKey);
+            _bannerSub.ForeColor = subColor;
+            if (_mascot != null) _mascot.Image = MascotFor(theme);
             _banner.Invalidate();
+        }
+
+        /// <summary>
+        /// Deliberately neutral, and the same on every tab. Tinting this button per tab was tried and
+        /// reverted: patching is a single action over all tabs at once, and a button that changes
+        /// colour with the tab reads as "patch this tab", which is exactly the wrong idea.
+        /// </summary>
+        static readonly Color PatchButtonColor = Color.FromArgb(74, 74, 74);
+
+        /// <summary>
+        /// Restyle the Patch button for its enabled state. A FlatStyle button keeps whatever BackColor
+        /// it was given when disabled — only the caption greys out — so the disabled Patch button
+        /// still read as clickable. Repainting it here is what actually makes "disabled" visible.
+        /// </summary>
+        void StylePatchButton()
+        {
+            if (_patchBtn == null) return;
+            if (_patchBtn.Enabled)
+            {
+                _patchBtn.BackColor = PatchButtonColor;
+                _patchBtn.ForeColor = Color.White;
+                _patchBtn.FlatAppearance.BorderColor = ControlPaint.Dark(PatchButtonColor, 0.15f);
+                _patchBtn.FlatAppearance.MouseOverBackColor = ControlPaint.Light(PatchButtonColor, 0.20f);
+                _patchBtn.FlatAppearance.MouseDownBackColor = ControlPaint.Dark(PatchButtonColor, 0.10f);
+                _patchBtn.Cursor = Cursors.Hand;
+            }
+            else
+            {
+                _patchBtn.BackColor = Color.FromArgb(214, 214, 214);
+                _patchBtn.ForeColor = Color.FromArgb(128, 128, 128);
+                _patchBtn.FlatAppearance.BorderColor = Color.FromArgb(188, 188, 188);
+                _patchBtn.Cursor = Cursors.Default;
+            }
+        }
+
+        /// <summary>
+        /// Mascot for a banner theme. The Cheats and Experimental mascots are optional drop-in
+        /// PNGs (logo_cheat.png / logo_experimental.png); while one is absent, a loud
+        /// missing-texture placeholder is shown so the gap cannot ship unnoticed.
+        /// </summary>
+        Image MascotFor(BannerTheme theme)
+        {
+            switch (theme)
+            {
+                case BannerTheme.Cheats:
+                    if (_logoCheat != null) return _logoCheat;
+                    Log("[dev] logo_cheat.png is missing — showing placeholder mascot.");
+                    return _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
+                case BannerTheme.Experimental:
+                    if (_logoExperimental != null) return _logoExperimental;
+                    Log("[dev] logo_experimental.png is missing — showing placeholder mascot.");
+                    return _missingMascot ?? (_missingMascot = MakeMissingMascot(144));
+                default:
+                    return _logo;
+            }
         }
 
         // ---------- localization ----------
@@ -486,7 +1047,9 @@ namespace MetalFatiguePatcher
         {
             Text                 = Lang.T("window.title") + "  " + VersionString();
             _bannerTitle.Text    = Lang.T("banner.title");
-            _bannerSub.Text      = _cheatUnlocked ? Lang.T("banner.cheatSub") : Lang.T("banner.sub");
+            _bannerSub.Text      = Lang.T(_bannerTheme == BannerTheme.Cheats       ? "banner.cheatSub"
+                                        : _bannerTheme == BannerTheme.Experimental ? "banner.expSub"
+                                        :                                            "banner.sub");
             _srcGroup.Text       = Lang.T("grp.source");
             _srcAuto.Text        = Lang.T("src.auto");
             _exeLabel.Text       = Lang.T("lbl.exe");
@@ -514,6 +1077,22 @@ namespace MetalFatiguePatcher
             {
                 _tabPatch.Text        = Lang.T("tab.patch");
                 _tabCheats.Text       = Lang.T("tab.cheats");
+                _tabExperimental.Text = Lang.T("tab.experimental");
+                _expWarnGroup.Text    = Lang.T("grp.expwarn");
+                _expWarn.Text         = Lang.T("exp.warning");
+                _expSoonGroup.Text    = Lang.T("grp.expsoon");
+                _expSoon.Text         = Lang.T("exp.soon");
+                _expSpeedGroup.Text   = Lang.T("grp.expspeed");
+                _expSpeed.Text        = Lang.T("exp.speed");
+                _expSpeedFactorLbl.Text = Lang.T("exp.speed.factor");
+                _expSpeedForLbl.Text  = Lang.T("unlock.for");
+                _expSpeedPlayer.Text  = Lang.T("scope.me");
+                _expSpeedAll.Text     = Lang.T("scope.all");
+                _expSpeedNote.Text    = Lang.T("exp.speed.note");
+                // "For:" resizes per language, so park the scope radios right after it.
+                _expSpeedPlayer.Left  = _expSpeedForLbl.Right + 6;
+                _expSpeedAll.Left     = _expSpeedPlayer.Right + 12;
+                UpdateSpeedLabels();
                 _cheatGroup.Text      = Lang.T("tab.cheats");
                 _globalGroup.Text     = Lang.T("grp.globalcheats");
                 _unlockGroup.Text     = Lang.T("grp.unlock");
@@ -534,8 +1113,8 @@ namespace MetalFatiguePatcher
                 // The parts scope radios sit after the "For:" label, which resizes per language.
                 _partsScopePlayer.Left = _partsForLabel.Right + 6;
                 _partsScopeAll.Left    = _partsScopePlayer.Right + 12;
-                // Re-label the tree nodes (slot suffixes + "Superweapons") in the new language.
-                BuildUnlockTree();
+                // Re-label the active unlock view (tree nodes or icon-list headers) for the language.
+                RebuildUnlockView();
             }
 
             // highlight the active language flag
@@ -569,9 +1148,8 @@ namespace MetalFatiguePatcher
                     canPatch = true;
                     break;
                 case Patcher.Compat.PatchedByUs:
-                    _compatLabel.Text = profKey != null
-                        ? string.Format(Lang.T("compat.patched"), Lang.ProfileTitle(profKey))
-                        : Lang.T("compat.patchedUnknown");
+                    // Just "already patched" — the version/cheats specifics are in the read-out below.
+                    _compatLabel.Text = Lang.T("compat.patched");
                     _compatLabel.ForeColor = Color.FromArgb(176, 108, 12);
                     canPatch = true;
                     break;
@@ -581,23 +1159,21 @@ namespace MetalFatiguePatcher
                     canPatch = false;
                     break;
                 default:
-                    // We recognise our own patch but have no clean original to work from.
-                    _compatLabel.Text = profKey != null
-                        ? Lang.T("compat.patchedNoBackup")
-                        : Lang.T("compat.unsupported");
+                    // We recognise our own patch but have no clean original to work from. If the file
+                    // still carries a superseded release's cave layout, name it: "restore the original"
+                    // is actionable, where "unknown version" would send them hunting the wrong problem.
+                    // Only worth saying here — with a clean backup, re-patching rebuilds from it and
+                    // wipes the old layout by itself.
+                    var legacy = PatchData.DetectLegacyLayout(_pathBox.Text.Trim());
+                    _compatLabel.Text = legacy != null
+                        ? string.Format(Lang.T("compat.legacyLayout"), legacy)
+                        : profKey != null
+                            ? Lang.T("compat.patchedNoBackup")
+                            : Lang.T("compat.unsupported");
                     _compatLabel.ForeColor = Color.FromArgb(192, 32, 32);
                     canPatch = false;
                     break;
             }
-
-            _contactLink.Text = Lang.T("compat.contact");
-            // Hidden until a real contact address is configured (see ContactUrl).
-            _contactLink.Visible = c == Patcher.Compat.Unsupported
-                                   && profKey == null
-                                   && !string.IsNullOrEmpty(ContactUrl);
-            // Only give up width for the contact link when it is actually shown.
-            // (Widths are relative to the "1. Game source" frame the label now lives in.)
-            _compatLabel.Width = _contactLink.Visible ? 432 : 706;
 
             // Grey out the version choice + patch button when we can't safely patch.
             _profGroup.Enabled = canPatch;
@@ -606,6 +1182,11 @@ namespace MetalFatiguePatcher
 
             var path = _pathBox.Text.Trim();
             bool svInstalled = !string.IsNullOrEmpty(path) && Patcher.HasSharedVision(path);
+
+            // Once a real game folder is known, decode its part icons + detect the language variant
+            // and switch the unlock UI from the text tree to the icon list (stays on the tree on any
+            // failure). Must run BEFORE we fill the read-out, which reports the detected variant.
+            EnsureIcons(path);
 
             // Reflect what is already installed — but only once per file, so the user
             // can still tick/untick freely afterwards without being overridden.
@@ -616,6 +1197,8 @@ namespace MetalFatiguePatcher
                 RestoreFromExe(path, profKey, c);
             }
             UpdateSharedVisionState();
+
+            FillExeInfo(c, profKey, path, svInstalled);
 
             // Show the state of the *installed* exe next to the box (the box itself is
             // the desired state). Only meaningful once something of ours is installed.
@@ -629,6 +1212,138 @@ namespace MetalFatiguePatcher
 
             // Only offer Restore when the backup actually verifies as a clean original.
             _restoreBtn.Enabled = Patcher.HasValidBackup(path);
+        }
+
+        /// <summary>
+        /// Fill the exe read-out (build, language variant, what is already installed) and decide
+        /// whether to offer a report link. Runs after EnsureIcons so the detected variant is current.
+        /// Categories only for "installed" — listing every cheat would overflow the row.
+        /// </summary>
+        void FillExeInfo(Patcher.Compat c, string profKey, string path, bool svInstalled)
+        {
+            bool haveFile = c != Patcher.Compat.Missing && !string.IsNullOrEmpty(path);
+            // Pristine / our-patch / our-patch-without-backup are all the supported Nightdive build.
+            bool knownBuild = c == Patcher.Compat.Pristine || c == Patcher.Compat.PatchedByUs
+                              || (c == Patcher.Compat.Unsupported && profKey != null);
+
+            // --- build ---
+            if (!haveFile)
+                _infoBuild.Text = Lang.T("info.build") + " —";
+            else if (knownBuild)
+                _infoBuild.Text = Lang.T("info.build") + " " + Lang.T("info.build.nightdive");
+            else
+            {
+                long size = 0; try { size = new FileInfo(path).Length; } catch { }
+                _infoBuild.Text = Lang.T("info.build") + " " + Lang.T("info.build.unknown")
+                                  + (size > 0 ? string.Format(" ({0:n0} B)", size) : "");
+            }
+
+            // --- language variant (from the icon-set detection) ---
+            string variantVal;
+            if (!haveFile) variantVal = "—";
+            else if (_variant != null) variantVal = Lang.T(_variant.NameKey);
+            else if (_variantMatch != null && _variantMatch.Variant == null) variantVal = Lang.T("variant.unknown");
+            else variantVal = "—";   // no TBD folder / could not decode
+            _infoVariant.Text = Lang.T("info.language") + " " + variantVal;
+
+            // --- what is already installed (categories, not individual items) ---
+            string installedVal;
+            if (!haveFile) installedVal = "—";
+            else
+            {
+                var cats = new System.Collections.Generic.List<string>();
+                if (profKey != null) cats.Add(Lang.T("info.cat.patch") + " (" + Lang.ProfileTitle(profKey) + ")");
+                else if (svInstalled) cats.Add(Lang.T("info.cat.patch"));
+                var inst = _lastInstalled;
+                if (inst != null)
+                {
+                    if (inst.Fog || inst.FreeBuild || inst.Turbo || inst.Crews || inst.PartsUnlock)
+                        cats.Add(Lang.T("info.cat.cheats"));
+                    if (inst.MoveSpeed) cats.Add(Lang.T("info.cat.experimental"));
+                }
+                installedVal = cats.Count > 0 ? string.Join(", ", cats) : Lang.T("info.installed.none");
+            }
+            _infoInstalled.Text = Lang.T("info.installed") + " " + installedVal;
+
+            // Carrying a superseded cave layout but still holding a clean backup: patching again
+            // rebuilds from that backup and drops the old layout on its own, so all this needs is a
+            // nudge. Without a backup the red compat line above says it instead, and far more firmly.
+            var legacyWithBackup = c == Patcher.Compat.PatchedByUs
+                ? PatchData.DetectLegacyLayout(_pathBox.Text.Trim()) : null;
+            _infoLegacy.Visible = legacyWithBackup != null;
+            if (legacyWithBackup != null)
+                _infoLegacy.Text = string.Format(Lang.T("info.legacyHint"), legacyWithBackup);
+
+            // --- report link: an unknown exe build, or a decoded-but-unrecognised language patch ---
+            if (c == Patcher.Compat.Unsupported && profKey == null) _reportKind = "version";
+            else if (haveFile && _variant == null && _variantMatch != null && _variantMatch.Variant == null) _reportKind = "language";
+            else _reportKind = null;
+            _reportLink.Visible = _reportKind != null;
+            _reportLink.Text = Lang.T("info.report");
+            _compatLabel.Width = _reportLink.Visible ? 472 : 680;   // yield room only when the link shows
+            ReflowReadout();
+        }
+
+        /// <summary>Size the status line to its text and slide the info rows under it. The frame
+        /// already reserves the three-line worst case, so this only ever moves rows inside it.</summary>
+        void ReflowReadout()
+        {
+            if (_compatLabel == null || _infoBuild == null) return;
+
+            int h = TextRenderer.MeasureText(
+                _compatLabel.Text, _compatLabel.Font,
+                new Size(_compatLabel.Width, 0), TextFormatFlags.WordBreak).Height;
+            _compatLabel.Height = Math.Min(50, Math.Max(18, h));
+
+            int top = _compatLabel.Bottom + 4;
+            _infoBuild.Top     = top;
+            _infoVariant.Top   = top + 17;
+            _infoInstalled.Top = top + 34;
+            _infoLegacy.Top    = top + 51;
+        }
+
+        /// <summary>Open the GitHub issue tracker, pre-selecting the template that fits what we
+        /// could not support (unknown build vs unknown language patch). A diagnostic snapshot is
+        /// copied to the clipboard so the report is actionable — the issue form asks to paste it.</summary>
+        void OpenReport()
+        {
+            try { Clipboard.SetText(BuildReportDiagnostics()); } catch { }
+            try
+            {
+                var url = IssuesUrl + "/new";
+                if (_reportKind == "version") url += "?template=unsupported_build.yml";
+                else if (_reportKind == "language") url += "?template=unsupported_language.yml";
+                System.Diagnostics.Process.Start(url);
+            }
+            catch { }
+        }
+
+        /// <summary>A copy-paste snapshot that identifies an unrecognised build or language patch:
+        /// file size + SHA-256 for an unknown exe, decoded icon counts for an unknown language.</summary>
+        string BuildReportDiagnostics()
+        {
+            var sb = new System.Text.StringBuilder();
+            sb.AppendLine("Metal Fatigue Retrofit " + VersionString() + "  (" + _reportKind + " report)");
+            var path = _pathBox.Text.Trim();
+            sb.AppendLine("exe: " + path);
+            try
+            {
+                if (File.Exists(path))
+                {
+                    sb.AppendLine("size: " + new FileInfo(path).Length + " bytes");
+                    using (var sha = System.Security.Cryptography.SHA256.Create())
+                    using (var fs = File.OpenRead(path))
+                        sb.AppendLine("sha256: " + BitConverter.ToString(sha.ComputeHash(fs)).Replace("-", "").ToLowerInvariant());
+                }
+            }
+            catch { }
+            if (_variantMatch != null)
+            {
+                var fc = _variantMatch.FactionIconCounts;
+                sb.AppendLine(string.Format("icon counts R/M/N: {0}/{1}/{2}", fc[0], fc[1], fc[2]));
+                sb.AppendLine("detected variant: " + (_variant != null ? _variant.Key : "<none matched>"));
+            }
+            return sb.ToString();
         }
 
         static Image LoadEmbedded(string resourceName)
@@ -666,6 +1381,8 @@ namespace MetalFatiguePatcher
 
             var extras = PatchData.CheatFeatureSites(features, _scopeAll.Checked);
             extras.AddRange(PatchData.PartsUnlockSites(GatherUnlockAddrs(), _partsScopeAll.Checked));
+            if (_expSpeed.Checked)
+                extras.AddRange(PatchData.MoveSpeedSites(SpeedFactor, _expSpeedAll.Checked));
             return extras;
         }
 
@@ -738,6 +1455,7 @@ namespace MetalFatiguePatcher
             if (c == Patcher.Compat.PatchedByUs || c == Patcher.Compat.Unsupported)
                 try { inst = PatchData.DetectInstalled(File.ReadAllBytes(path)); } catch { }
             inst = inst ?? new PatchData.Installed();   // pristine / unreadable -> all off
+            _lastInstalled = inst;   // reused by the exe-info read-out (UpdateCompat)
 
             _cheatFog.Checked        = inst.Fog;
             _cheatBuild.Checked      = inst.FreeBuild;
@@ -748,21 +1466,35 @@ namespace MetalFatiguePatcher
             _partsScopeAll.Checked   = inst.PartsScopeAll;
             _partsScopePlayer.Checked = !inst.PartsScopeAll;
 
-            // Restore the part/superweapon tree from the unlocked descriptor addresses.
+            _expSpeed.Checked          = inst.MoveSpeed;
+            _expSpeedAll.Checked       = inst.MoveSpeedScopeAll;
+            _expSpeedPlayer.Checked    = !inst.MoveSpeedScopeAll;
+            SetSpeedFactor(inst.MoveSpeed ? inst.MoveSpeedFactor : 2.0);
+            UpdateSpeedEnabled();
+
+            // Restore the part/superweapon selection from the unlocked descriptor addresses.
             var set = new System.Collections.Generic.HashSet<uint>(inst.UnlockedAddrs);
-            _treeCascading = true;
-            foreach (TreeNode top in _unlockTree.Nodes)
+            if (_iconToggles != null)   // icon mode
             {
-                bool allOn = top.Nodes.Count > 0;
-                foreach (TreeNode leaf in top.Nodes)
-                {
-                    bool on = leaf.Tag is uint a && set.Contains(a);
-                    leaf.Checked = on;
-                    if (!on) allOn = false;
-                }
-                top.Checked = allOn;   // the faction parent reflects "all its parts on"
+                foreach (var cb in _iconToggles)
+                    if (cb.Tag is uint a) cb.Checked = set.Contains(a);
             }
-            _treeCascading = false;
+            else                        // tree fallback
+            {
+                _treeCascading = true;
+                foreach (TreeNode top in _unlockTree.Nodes)
+                {
+                    bool allOn = top.Nodes.Count > 0;
+                    foreach (TreeNode leaf in top.Nodes)
+                    {
+                        bool on = leaf.Tag is uint a && set.Contains(a);
+                        leaf.Checked = on;
+                        if (!on) allOn = false;
+                    }
+                    top.Checked = allOn;   // the faction parent reflects "all its parts on"
+                }
+                _treeCascading = false;
+            }
         }
 
         void Log(string s) => _log.AppendText(s + Environment.NewLine);

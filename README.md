@@ -67,8 +67,8 @@ re-patching never silently drops what you had.
 
 Good to know (all working as intended, not bugs):
 
-- Only *cross-faction* parts are unlocked. Your own faction's parts that sit behind research
-  conditions still need their normal research.
+- Only *cross-faction* parts are unlocked. Your own faction's parts that require a specific
+  building (e.g. a research center or AI facility) still need that building.
 - Alien parts built during the **prebuild phase** must be re-researched at a research center
   afterwards.
 - Unit and crew limits always apply to every player; part unlocks always apply to you (unless you

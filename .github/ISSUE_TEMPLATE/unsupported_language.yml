@@ -1,0 +1,83 @@
+name: Unsupported language patch
+description: The patcher recognises your game build but not its language/translation patch (build-menu icons)
+title: "[Unsupported language]: "
+labels: ["unsupported-language", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The patcher reads the build-menu part icons straight from your own game files so it can
+        show them on the unlock buttons. Translation patches often reorder or drop those icons,
+        so a build the patcher doesn't know about would map them to the wrong pictures — when
+        that happens it falls back to the plain text list instead of showing wrong icons, and
+        the language shows as **Unknown language patch**.
+
+        This is usually cheap to support: the icon layout below is all that's needed to add your
+        patch to the list. The unlock **addresses are never affected** — patching works either
+        way; this is only about the icons.
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Paste the diagnostic snapshot
+        When you clicked "Report version" the patcher copied a short snapshot to your clipboard
+        (file size, and the decoded icon counts per faction). Please paste it below — those
+        numbers are exactly what identifies the layout.
+
+  - type: textarea
+    id: snapshot
+    attributes:
+      label: Diagnostic snapshot (paste from clipboard)
+      placeholder: |
+        Metal Fatigue Retrofit v1.2.0  (language report)
+        exe: E:\...\MFatigue.exe
+        size: 1191989 bytes
+        icon counts R/M/N: 74/74/74
+        detected variant: <none matched>
+      render: text
+    validations:
+      required: true
+
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where is your copy from?
+      options:
+        - Steam
+        - GOG
+        - Original CD / retail release
+        - Other digital store
+        - Not sure
+    validations:
+      required: true
+
+  - type: input
+    id: language
+    attributes:
+      label: Which language / translation is installed?
+      placeholder: "e.g. German fan patch, French, Polish ..."
+    validations:
+      required: true
+
+  - type: input
+    id: patchlink
+    attributes:
+      label: Link to the translation patch, if you know it
+      description: A download page or forum thread helps enormously — it lets the exact icon files be checked directly.
+      placeholder: "https://..."
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Anything else
+      description: For example which parts showed the wrong icon, or anything else that might help.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        Thanks — once the icon layout is known, adding a language usually just means one new
+        entry in the patcher's variant table.
