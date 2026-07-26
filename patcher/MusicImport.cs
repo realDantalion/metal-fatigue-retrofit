@@ -23,12 +23,12 @@ namespace MetalFatiguePatcher
 {
     /// <summary>
     /// Imports the CD 1 (Rimtech) music the re-release is missing. The patcher ships no audio and
-    /// links to no source — the user supplies ten OGG files and this puts them where the game looks.
+    /// links to no source — the player supplies ten OGG files and this puts them where the game looks.
     ///
     /// The game addresses music by track NUMBER, so the files have to land on the right slot:
     /// Track24..28 are the quiet set, Track29..33 the action set, each in the order they had on the
     /// disc. Filenames cannot be trusted for that — every source names them differently — so the
-    /// mapping is derived from playing time, which survives re-encoding. The user confirms (and can
+    /// mapping is derived from playing time, which survives re-encoding. The player confirms (and can
     /// correct) the result before anything is written.
     /// </summary>
     public static class MusicImport
@@ -172,7 +172,7 @@ namespace MetalFatiguePatcher
         /// Assign each file to a slot: every slot taken exactly once, total deviation minimised.
         /// Ten files means ten factorial permutations is far too many to brute-force, but the
         /// references are so far apart that a greedy pass over the globally closest pairs finds the
-        /// optimum; anything it cannot place within tolerance is flagged for the user to sort out.
+        /// optimum; anything it cannot place within tolerance is flagged to be sorted out by hand.
         /// </summary>
         public static void Assign(List<Candidate> tracks)
         {
@@ -244,7 +244,7 @@ namespace MetalFatiguePatcher
         /// <summary>
         /// Remove only the files this feature adds — never touch the game's own tracks.
         /// Reports what it could not delete instead of swallowing it: a file held open by the preview
-        /// stays behind, and silently pretending otherwise leaves the list showing tracks the user
+        /// stays behind, and silently pretending otherwise leaves the list showing tracks the player
         /// just asked to be rid of.
         /// </summary>
         public static int Remove(string exePath, out List<string> failed)
@@ -283,7 +283,7 @@ namespace MetalFatiguePatcher
         /// <summary>
         /// Read back what is already installed, so the tab can show the real arrangement instead of
         /// just "something is installed". Each file's slot comes from its name, and its confidence is
-        /// re-judged against that slot's reference length — which is what surfaces an order the user
+        /// re-judged against that slot's reference length — which is what surfaces an order the player
         /// (or an earlier import) got wrong.
         /// </summary>
         public static List<Candidate> LoadInstalled(string exePath)
@@ -307,7 +307,7 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
-        /// Move already-installed files to the slots the user just confirmed. Everything is staged
+        /// Move already-installed files to the slots just confirmed. Everything is staged
         /// under temporary names first: a straight rename would clobber a file whenever two tracks
         /// swap places, and half of the set would be gone before anyone noticed.
         /// </summary>

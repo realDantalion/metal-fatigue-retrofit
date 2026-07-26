@@ -36,7 +36,7 @@ namespace MetalFatiguePatcher
         string _reportKind;                                // "version" | "language" | null — drives the report link
 
         /// <summary>
-        /// Where users can report an unsupported build. While this is empty the
+        /// Where an unsupported build can be reported. While this is empty the
         /// "contact us" link stays hidden, so no placeholder URL can ever ship.
         /// </summary>
         const string ContactUrl = "";
@@ -59,7 +59,7 @@ namespace MetalFatiguePatcher
         TreeView _unlockTree;
         bool _treeCascading;   // guards the parent<->child check cascade against recursion
         // Icon section-list: shown instead of the tree once the game's part icons decode from the
-        // user's OWN files (see GameIcons). _iconToggles != null means we are in icon mode; every
+        // player's OWN files (see GameIcons). _iconToggles != null means icon mode is active; every
         // unlock read/write branches on that, and any decode failure just leaves the tree up.
         FlowLayoutPanel _unlockList;
         System.Collections.Generic.List<CheckBox> _iconToggles;
@@ -137,7 +137,7 @@ namespace MetalFatiguePatcher
             return bmp;
         }
 
-        /// <summary>Path whose installed shared-vision state we already mirrored into the box.</summary>
+        /// <summary>Path whose installed shared-vision state already mirrored into the box.</summary>
         string _svSyncedPath;
 
         // The banner theme is driven by the active tab: blue (Patch), orange (Cheats),
@@ -149,8 +149,16 @@ namespace MetalFatiguePatcher
         {
             ClientSize = new Size(760, 782);
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
+
+            // Resizable since 1.3.1. The window used to be fixed at 776x821 including its frame,
+            // which does not fit a 1920x1080 laptop at 150% scaling: that leaves 688 usable pixels,
+            // so the Patch button sat below the edge of the screen with no way to reach it. Growing
+            // is the nice-to-have; shrinking is the one that was actually broken.
+            FormBorderStyle = FormBorderStyle.Sizable;
+            MaximizeBox = true;
+            // Floor chosen so nothing inside overlaps: the Patch tab's four version radios need the
+            // full group width, and the button row needs Patch + Restore + Exit side by side.
+            MinimumSize = new Size(700, 500);
             Font = new Font("Segoe UI", 9f);
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
             _logo = LoadEmbedded("MetalFatiguePatcher.logo.png");
@@ -161,15 +169,35 @@ namespace MetalFatiguePatcher
             BuildBanner();
 
             // Tabs: "Patch" (the bug-fix, unchanged) and "Cheats" (2.0 — individually selectable).
-            _tabs = new TabControl { Location = new Point(12, 126), Size = new Size(736, 434) };
-            _tabPatch = new TabPage();
-            _tabCheats = new TabPage();
-            _tabExperimental = new TabPage();
-            _tabMusic = new TabPage();
+            _tabs = new TabControl
+            {
+                Location = new Point(12, 126), Size = new Size(736, 434),
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
+            };
+            // Each page scrolls on its own rather than the whole form. Shrinking the window shrinks
+            // the tab control, and a page whose content no longer fits grows a scrollbar instead of
+            // clipping — which keeps the banner and the button row where they are expected.
+            _tabPatch = new TabPage { AutoScroll = true };
+            _tabCheats = new TabPage { AutoScroll = true };
+            _tabExperimental = new TabPage { AutoScroll = true };
+            _tabMusic = new TabPage { AutoScroll = true };
             _tabs.TabPages.Add(_tabPatch);
             _tabs.TabPages.Add(_tabCheats);
             _tabs.TabPages.Add(_tabExperimental);
             _tabs.TabPages.Add(_tabMusic);
+
+            // Give the pages their real size BEFORE anything is put inside them. A TabControl only
+            // sizes its pages when it creates its handle, so until then a page is a 200x100 stub —
+            // and a child anchored to the right would cache its distance to that stub's edge and
+            // keep it forever, ending up hundreds of pixels wider than the page. The numbers are the
+            // display area of a 736x434 TabControl: full size minus the tab strip and the borders.
+            var pageSize = new Size(728, 406);
+            foreach (TabPage p in _tabs.TabPages) p.Size = pageSize;
+
+            // AutoScroll sizes itself from the children — but it skips anything anchored to the
+            // bottom edge, and the music frame is exactly that. Left alone, a short window clips the
+            // transport row away with no scrollbar to reach it, so state the floor outright.
+            _tabMusic.AutoScrollMinSize = new Size(0, 400);
             // The banner theme follows the active tab: blue (Patch), orange (Cheats),
             // Neuropa faction green (Experimental).
             _tabs.SelectedIndexChanged += (s, e) => SetBannerTheme(
@@ -186,7 +214,8 @@ namespace MetalFatiguePatcher
             // 1. Game source — radios, the MFatigue.exe path chooser, and the
             // compatibility status all live in this one frame.
             // 194 = the three-line worst case (label 82+50, then three 17px info rows, then padding).
-            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 194) };
+            _srcGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 194),
+                                       Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _srcAuto  = new RadioButton { Checked = true, Location = new Point(14, 24), AutoSize = true };
             _srcSteam = new RadioButton { Text = "Steam", Location = new Point(220, 24), AutoSize = true };
             _srcGog   = new RadioButton { Text = "GOG",   Location = new Point(330, 24), AutoSize = true };
@@ -198,47 +227,59 @@ namespace MetalFatiguePatcher
             // The frame is 708 wide and clips its children, so nothing may reach past 694
             // (= 708 - the same 14px margin the left edge uses). The Browse button was the
             // visible casualty: it ended at 720 and lost its right border to the frame.
-            _pathBox   = new TextBox { Location = new Point(110, 54), Size = new Size(468, 24) };
-            _browseBtn = new Button  { Location = new Point(586, 53), Size = new Size(108, 26) };
+            _pathBox   = new TextBox { Location = new Point(110, 54), Size = new Size(468, 24),
+                                       Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _browseBtn = new Button  { Location = new Point(586, 53), Size = new Size(108, 26),
+                                       Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _browseBtn.Click += (s, e) => Browse();
             _pathBox.TextChanged += (s, e) => UpdateCompat();
-            // Read-out area: everything we can learn about the chosen exe. Populated by UpdateCompat.
-            // Row 1 = compatibility status (coloured) + a report link when we can't fully support it.
+            // Read-out area: everything that can be learned about the chosen exe. Populated by UpdateCompat.
+            // Row 1 = compatibility status (coloured) + a report link when it cannot be fully supported.
             // The status line grows to fit its text — up to three lines, which is what the longest
             // message (patched by a superseded release) needs in German/French/Russian/Japanese at
-            // the narrower 472px width the report link leaves. A status the user has to act on is
+            // the narrower 472px width the report link leaves. A status that has to be acted on is
             // the worst thing to truncate. The frame reserves that worst case permanently and the
             // rows below follow the label, so short messages leave the slack at the bottom of the
             // frame instead of a hole in the middle, and nothing outside the frame ever moves.
+            // Width is managed by ReflowReadout, which now derives it from the frame — hence no Right
+            // anchor here: anchoring and an explicit Width would fight each other on every resize.
             _compatLabel = new Label { Location = new Point(14, 82), Size = new Size(560, 18), AutoEllipsis = true };
             _reportLink = new LinkLabel
             {
                 Location = new Point(494, 82), Size = new Size(200, 18),
                 TextAlign = ContentAlignment.MiddleRight, Visible = false,
-                LinkColor = Color.FromArgb(80, 130, 200)
+                LinkColor = Color.FromArgb(80, 130, 200),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             _reportLink.LinkClicked += (s, e) => OpenReport();
             // Rows 2-4 = build, language variant, and what is already installed. Caption + value
             // are baked into each label's text in UpdateCompat (localised).
             // Tops here are the one-line case; ReflowReadout repositions them to follow the label.
-            _infoBuild     = new Label { Location = new Point(14, 104), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
-            _infoVariant   = new Label { Location = new Point(14, 121), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
-            _infoInstalled = new Label { Location = new Point(14, 138), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f) };
+            _infoBuild     = new Label { Location = new Point(14, 104), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f),
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _infoVariant   = new Label { Location = new Point(14, 121), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f),
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _infoInstalled = new Label { Location = new Point(14, 138), Size = new Size(680, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f),
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             // Fourth row, shown only when an older release's layout is detected AND a clean backup
             // exists — i.e. the case that repairs itself, so this is advice, not a warning. It can
             // never coincide with the three-line compat message, which covers the no-backup case.
             _infoLegacy    = new Label { Location = new Point(14, 155), Size = new Size(680, 16), Visible = false,
-                                         ForeColor = Color.FromArgb(176, 108, 12), Font = new Font("Segoe UI", 8.25f) };
+                                         ForeColor = Color.FromArgb(176, 108, 12), Font = new Font("Segoe UI", 8.25f),
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             // Kept only so the old easter-egg/detection code still compiles; never shown.
             _contactLink = new LinkLabel { Visible = false };
             _srcGroup.Controls.AddRange(new Control[] {
                 _srcAuto, _srcSteam, _srcGog, _exeLabel, _pathBox, _browseBtn,
                 _compatLabel, _reportLink, _infoBuild, _infoVariant, _infoInstalled, _infoLegacy });
             tabPatch.Controls.Add(_srcGroup);
+            // The status line wraps against the frame's width, so a resize has to re-measure it.
+            _srcGroup.Resize += (s, e) => ReflowReadout();
             y += 204;
 
             // 2. Version
-            _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 100) };
+            _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 100),
+                                        Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _prof2x        = new RadioButton { Location = new Point(14, 24),  AutoSize = true };
             _prof4x        = new RadioButton { Checked = true, Location = new Point(210, 24), AutoSize = true };
             _prof8x        = new RadioButton { Location = new Point(420, 24), AutoSize = true };
@@ -247,7 +288,8 @@ namespace MetalFatiguePatcher
             // easter-egg / detection code still compiles. They are never shown or selectable.
             _profCheats    = new RadioButton { Visible = false };
             _profCheatsAll = new RadioButton { Visible = false };
-            _profDesc = new Label { Location = new Point(14, 54), Size = new Size(680, 40), ForeColor = Color.DimGray };
+            _profDesc = new Label { Location = new Point(14, 54), Size = new Size(680, 40), ForeColor = Color.DimGray,
+                                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             foreach (var rb in new[] { _prof2x, _prof4x, _prof8x, _profUnleashed })
                 rb.CheckedChanged += (s, e) => UpdateProfDesc();
             _profGroup.Controls.AddRange(new Control[] { _prof2x, _prof4x, _prof8x, _profUnleashed, _profDesc });
@@ -255,7 +297,8 @@ namespace MetalFatiguePatcher
             y += 110;
 
             // 3. Shared vision — optional add-on, framed like the sections above.
-            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 74) };
+            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 74),
+                                      Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _sharedVision = new CheckBox { Location = new Point(14, 24), AutoSize = true };
             _tips.SetToolTip(_sharedVision, "");
             _svStatus = new Label { Location = new Point(300, 26), AutoSize = true, Visible = false };
@@ -263,7 +306,8 @@ namespace MetalFatiguePatcher
             {
                 Text = "Disabled — \"No fog of war\" (Cheats tab) already reveals the whole map.",
                 Location = new Point(14, 48), Size = new Size(680, 16), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f), Visible = false
+                Font = new Font("Segoe UI", 8f), Visible = false,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _sharedVision.CheckedChanged += (s, e) => UpdateSharedVisionState();
             _svGroup.Controls.AddRange(new Control[] { _sharedVision, _svStatus, _svFogNote });
@@ -280,15 +324,26 @@ namespace MetalFatiguePatcher
             _patchBtn = new Button
             {
                 Location = new Point(12, y), Size = new Size(140, 34),
-                ForeColor = Color.White, FlatStyle = FlatStyle.Flat
+                ForeColor = Color.White, FlatStyle = FlatStyle.Flat,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
             };
             _patchBtn.Click += (s, e) => DoPatch();
             // Colour follows the enabled state, so hook it here rather than at every Enabled = ...
             _patchBtn.EnabledChanged += (s, e) => StylePatchButton();
             StylePatchButton();
-            _restoreBtn = new Button { Location = new Point(160, y), Size = new Size(230, 34) };
+            _restoreBtn = new Button
+            {
+                Location = new Point(160, y), Size = new Size(230, 34),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
+            };
             _restoreBtn.Click += (s, e) => DoRestore();
-            _exitBtn = new Button { Location = new Point(628, y), Size = new Size(120, 34) };
+            // Exit rides the right edge; the other two stay left, so the gap between them absorbs
+            // the extra width instead of the buttons stretching into odd shapes.
+            _exitBtn = new Button
+            {
+                Location = new Point(628, y), Size = new Size(120, 34),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right
+            };
             _exitBtn.Click += (s, e) => Close();
             Controls.AddRange(new Control[] { _patchBtn, _restoreBtn, _exitBtn });
             y += 44;
@@ -299,7 +354,10 @@ namespace MetalFatiguePatcher
                 Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical,
                 Location = new Point(12, y), Size = new Size(736, 104),
                 BackColor = Color.FromArgb(30, 30, 30), ForeColor = Color.Gainsboro,
-                Font = new Font("Consolas", 9f)
+                Font = new Font("Consolas", 9f),
+                // Fixed height, pinned to the bottom: extra vertical space belongs to the tabs, where
+                // the content is. The log only needs to be wide enough not to wrap its paths.
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(_log);
             y += 112;
@@ -309,7 +367,8 @@ namespace MetalFatiguePatcher
             {
                 Location = new Point(12, y), Size = new Size(736, 32),
                 ForeColor = Color.Gray, Font = new Font("Segoe UI", 7.5f),
-                TextAlign = ContentAlignment.MiddleCenter
+                TextAlign = ContentAlignment.MiddleCenter,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             Controls.Add(_credits);
             y += 32;
@@ -319,7 +378,8 @@ namespace MetalFatiguePatcher
                 Location = new Point(12, y), Size = new Size(736, 16),
                 Font = new Font("Segoe UI", 7.5f),
                 TextAlign = ContentAlignment.MiddleCenter,
-                LinkColor = Color.FromArgb(90, 110, 150)
+                LinkColor = Color.FromArgb(90, 110, 150),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             _licenseLink.LinkClicked += (s, e) =>
             {
@@ -340,7 +400,8 @@ namespace MetalFatiguePatcher
             // Scope: player only vs everyone (AI included). Parts/superweapon unlocks are always
             // local-player only, so the scope governs the resource/build cheats.
             // Scoped cheats — the "me only / all players" switch governs exactly these.
-            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 90), ForeColor = orange };
+            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 90), ForeColor = orange,
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _scopePlayer = new RadioButton { Checked = true, Location = new Point(14, 20), AutoSize = true };
             _scopeAll = new RadioButton { Location = new Point(120, 20), AutoSize = true };
             _cheatBuild = new CheckBox { Location = new Point(14, 48), AutoSize = true };
@@ -350,30 +411,38 @@ namespace MetalFatiguePatcher
             _fogSvNote = new Label
             {
                 Location = new Point(470, 50), Size = new Size(232, 14), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f), Visible = false
+                Font = new Font("Segoe UI", 8f), Visible = false,
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
             };
             _scopeNote = new Label
             {
-                Location = new Point(14, 68), Size = new Size(690, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+                Location = new Point(14, 68), Size = new Size(690, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _cheatFog.CheckedChanged += (s, e) => UpdateSharedVisionState();
             _cheatGroup.Controls.AddRange(new Control[] { _scopePlayer, _scopeAll, _scopeNote, _cheatFog, _cheatBuild, _cheatTurbo, _fogSvNote });
             tab.Controls.Add(_cheatGroup);
 
             // Always-global cheats — no scope, so they live in their own little section.
-            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 48), ForeColor = orange };
+            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 48), ForeColor = orange,
+                                          Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
             // The crews cheat includes the crew-name fix, so it also lifts the ~50 combot limit even
             // on a non-Maximum version. Say so, since that overlaps with what the Version tab does.
             _crewsNote = new Label
             {
-                Location = new Point(230, 22), Size = new Size(470, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
+                Location = new Point(230, 22), Size = new Size(470, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _globalGroup.Controls.AddRange(new Control[] { _cheatCrews, _crewsNote });
             tab.Controls.Add(_globalGroup);
 
             // Unlock tree: combot parts (by faction) + superweapons, each a checkable node.
-            _unlockGroup = new GroupBox { Location = new Point(12, 160), Size = new Size(708, 200), ForeColor = orange };
+            // Takes every pixel the tab has left over, in both directions: this is the one section
+            // where more room means more parts on screen at once.
+            _unlockGroup = new GroupBox { Location = new Point(12, 160), Size = new Size(708, 200), ForeColor = orange,
+                                          Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                                          MinimumSize = new Size(0, 200) };
             // Parts get their own scope: the AI does use foreign parts (confirmed in testing), so
             // "all players" is a real option here, separate from the resource-cheat scope above.
             _partsForLabel = new Label { Location = new Point(14, 22), AutoSize = true, ForeColor = Color.DimGray };
@@ -418,7 +487,14 @@ namespace MetalFatiguePatcher
                 Location = new Point(8, 6), Size = new Size(714, 358), Visible = false,
                 BackColor = Color.FromArgb(26, 26, 30), BorderStyle = BorderStyle.FixedSingle
             };
+            _unlockOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
             tab.Controls.Add(_unlockOverlay);
+
+            // One place decides the geometry of the unlock area, and it runs whenever the frame
+            // changes size. The rows re-flow from the list's own width, so widening the window turns
+            // straight into more icon columns.
+            _unlockGroup.Resize += (s, e) => { LayoutUnlockArea(); FitRows(); };
+            _unlockList.SizeChanged += (s, e) => FitRows();
             _hoverTimer = new System.Windows.Forms.Timer { Interval = 160 };
             _hoverTimer.Tick += (s, e) =>
             {
@@ -439,7 +515,7 @@ namespace MetalFatiguePatcher
 
         /// <summary>
         /// Music tab: put back the Rimtech soundtrack the re-release is missing. Unlike every other
-        /// tab this one needs files from the user — the patcher ships no audio and names no source.
+        /// tab this one needs files from the player — the patcher ships no audio and names no source.
         ///
         /// The list lives here rather than in a dialog, because it is not a one-off question: it IS
         /// the state of the feature. It shows what is on disk right now, so loading an already-patched
@@ -452,28 +528,40 @@ namespace MetalFatiguePatcher
         void BuildMusicTab(TabPage tab)
         {
             var violet = Color.FromArgb(88, 48, 150);
-            _musicGroup = new GroupBox { Location = new Point(12, 6), Size = new Size(708, 380), ForeColor = violet };
+            _musicGroup = new GroupBox { Location = new Point(12, 6), Size = new Size(708, 380), ForeColor = violet,
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
+                                         // Floor at the design height. Without it a short window squeezes the
+                                         // frame until the grid is 0px tall and the transport row climbs on top
+                                         // of it; with it the frame keeps its size and the page scrolls instead.
+                                         MinimumSize = new Size(0, 380) };
 
             // y=26, not 20: a GroupBox draws its caption on the frame line, and text starting any
             // higher runs into it.
             _musicIntro = new Label
             {
                 Location = new Point(14, 26), Size = new Size(680, 42),
-                ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f)
+                ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.25f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
             _musicPickFolder = new Button { Location = new Point(14, 74), Size = new Size(150, 26) };
             _musicPickZip    = new Button { Location = new Point(172, 74), Size = new Size(150, 26) };
-            _musicRemove     = new Button { Location = new Point(544, 74), Size = new Size(150, 26) };
+            // Remove sits at the far right, away from the two import buttons: it is the destructive
+            // one, and the gap is what keeps it from being clicked by momentum.
+            _musicRemove     = new Button { Location = new Point(544, 74), Size = new Size(150, 26),
+                                            Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _musicPickFolder.Click += (s, e) => ImportMusic(false);
             _musicPickZip.Click    += (s, e) => ImportMusic(true);
             _musicRemove.Click     += (s, e) => RemoveMusic();
 
             // A grid, not a ListView: the per-row buttons are the discoverable way to reorder, and
-            // only a grid gives them to us without owner-drawing and hit-testing by hand.
+            // only a grid provides them without owner-drawing and hit-testing by hand.
             _musicGrid = new DataGridView
             {
                 Location = new Point(14, 108), Size = new Size(680, 192),
+                // The grid takes every pixel the frame gains, in both directions: more height means
+                // more of the ten tracks visible at once, which is the whole point of a bigger window.
+                Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 AllowUserToAddRows = false, AllowUserToDeleteRows = false, AllowUserToResizeRows = false,
                 // Text columns may be widened — a long file name is worth more room. The two button
                 // columns are pinned further down: stretching a button changes nothing but its looks.
@@ -489,7 +577,11 @@ namespace MetalFatiguePatcher
                 ScrollBars = ScrollBars.Vertical,
             };
             _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "slot", Width = 62 });
-            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "file", Width = 228 });
+            // The one column with unbounded content, so it absorbs whatever width the window gains.
+            // Fill on a single column works even with the grid-level mode set to None, and the player
+            // can still drag it — that only re-weights it.
+            _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "file", Width = 228,
+                AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, FillWeight = 100, MinimumWidth = 120 });
             _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "exp",  Width = 72,
                 DefaultCellStyle = new DataGridViewCellStyle { Alignment = DataGridViewContentAlignment.MiddleRight } });
             _musicGrid.Columns.Add(new DataGridViewTextBoxColumn { Name = "act",  Width = 72,
@@ -505,13 +597,17 @@ namespace MetalFatiguePatcher
             _musicGrid.CellContentClick += MusicGridClick;
             _musicGrid.SelectionChanged += (s, e) => UpdateMusicTransport();
 
-            _musicPlay = new Button { Location = new Point(14, 308), Size = new Size(70, 26), Text = "▶", Enabled = false };
+            // The whole transport row rides the bottom edge: the grid above it takes the new height,
+            // so these have to move down with the frame rather than stay put under a grown grid.
+            _musicPlay = new Button { Location = new Point(14, 308), Size = new Size(70, 26), Text = "▶", Enabled = false,
+                                      Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
             _musicPlay.Click += (s, e) =>
             {
                 var t = _musicGrid.CurrentRow?.Tag as MusicImport.Candidate;
                 if (t != null) PlayMusicRow(t);
             };
-            _musicPlayStop = new Button { Location = new Point(90, 308), Size = new Size(70, 26), Text = "■", Enabled = false };
+            _musicPlayStop = new Button { Location = new Point(90, 308), Size = new Size(70, 26), Text = "■", Enabled = false,
+                                          Anchor = AnchorStyles.Bottom | AnchorStyles.Left };
             _musicPlayStop.Click += (s, e) => { _musicPreview?.Stop(); UpdateMusicTransport(); };
             // AutoSize = false is load-bearing: a TrackBar ignores the height you give it and grows to
             // 45px, which silently covered the status line underneath it.
@@ -519,13 +615,19 @@ namespace MetalFatiguePatcher
             {
                 AutoSize = false,
                 Location = new Point(166, 306), Size = new Size(330, 28),
+                // The only part of the row worth widening — a longer bar means finer seeking. The
+                // volume block to its right is anchored to the right edge, so the gap between them
+                // stays put and the seek bar takes everything in between.
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                 Minimum = 0, Maximum = 1000, TickStyle = TickStyle.None, Enabled = false
             };
-            _musicVolLbl = new Label { Location = new Point(506, 312), AutoSize = true, Text = "🔊", ForeColor = Color.DimGray };
+            _musicVolLbl = new Label { Location = new Point(506, 312), AutoSize = true, Text = "🔊", ForeColor = Color.DimGray,
+                                       Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
             _musicVol = new TrackBar
             {
                 AutoSize = false,
                 Location = new Point(528, 306), Size = new Size(86, 28),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Right,
                 Minimum = 0, Maximum = 100, Value = 70, TickStyle = TickStyle.None
             };
             // Volume is remembered on the preview, so it survives switching tracks and is applied
@@ -541,14 +643,16 @@ namespace MetalFatiguePatcher
                 if (_musicPreview != null && _musicPreview.Length > 0)
                     _musicPreview.SeekTo(_musicPreview.Length * _musicSeek.Value / 1000.0);
             };
-            _musicTime = new Label { Location = new Point(622, 312), Size = new Size(72, 18), ForeColor = Color.DimGray };
+            _musicTime = new Label { Location = new Point(622, 312), Size = new Size(72, 18), ForeColor = Color.DimGray,
+                                     Anchor = AnchorStyles.Bottom | AnchorStyles.Right };
 
             // A colour that is never explained is a puzzle. The legend flows left-to-right so the
             // three entries stay side by side whatever their length in the current language.
             _musicLegend = new FlowLayoutPanel
             {
                 Location = new Point(12, 340), Size = new Size(684, 20),
-                FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false
+                FlowDirection = FlowDirection.LeftToRight, WrapContents = false, AutoScroll = false,
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left
             };
             _musicLegendActive   = LegendDot(Color.FromArgb(22, 120, 52));
             _musicLegendPending  = LegendDot(Color.Gray);
@@ -557,7 +661,8 @@ namespace MetalFatiguePatcher
 
             _musicStatus = new Label
             {
-                Location = new Point(14, 362), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.25f)
+                Location = new Point(14, 362), Size = new Size(680, 18), Font = new Font("Segoe UI", 8.25f),
+                Anchor = AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
 
             _musicTimer = new Timer { Interval = 200 };
@@ -576,7 +681,7 @@ namespace MetalFatiguePatcher
         /// break saves / multiplayer. Framed in the Neuropa faction green. First resident is the
 
         /// <summary>
-        /// Import ten user-supplied OGG files as Rimtech's soundtrack. Everything is confirmed before
+        /// Import ten player-supplied OGG files as Rimtech's soundtrack. Everything is confirmed before
         /// anything is written: the mapping is shown, the files go in first, and only once they are
         /// verified on disk does the exe get its 16-byte table edit. Failing halfway leaves the game
         /// exactly as it was.
@@ -819,7 +924,7 @@ namespace MetalFatiguePatcher
             bool installed = haveFiles && _lastInstalled != null && _lastInstalled.RimtechMusic;
 
             // Importing and removing music do not go through UpdateCompat, so the crash report's
-            // music fact would otherwise still describe the state before the user touched anything.
+            // music fact would otherwise still describe the state before anything was touched.
             try { CrashLog.Context("music:", haveFiles ? "files present" : "no files"); } catch { }
 
             // Reconstruct the real arrangement, not just "something is there": if a file sits on a
@@ -831,7 +936,7 @@ namespace MetalFatiguePatcher
                         .Count(t => t.Confidence == MusicImport.Confidence.Uncertain);
 
             // Two independent facts, so say both. Which state the feature is in comes first — that is
-            // what the user came to find out — and a length mismatch is appended, not substituted.
+            // what the player came to find out — and a length mismatch is appended, not substituted.
             // Reporting only the mismatch used to hide whether the exe was patched at all.
             bool tablePatched = _lastInstalled != null && _lastInstalled.RimtechMusic;
 
@@ -874,20 +979,23 @@ namespace MetalFatiguePatcher
             var green = Color.FromArgb(36, 132, 70);   // Neuropa faction green (#3AB451 family)
 
             // Read-first warning — these features can damage saved games / multiplayer.
-            _expWarnGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 84), ForeColor = green };
+            _expWarnGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 84), ForeColor = green,
+                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _expWarn = new Label
             {
-                Location = new Point(14, 22), Size = new Size(684, 56), ForeColor = Color.FromArgb(150, 96, 20)
+                Location = new Point(14, 22), Size = new Size(684, 56), ForeColor = Color.FromArgb(150, 96, 20),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _expWarnGroup.Controls.Add(_expWarn);
             tab.Controls.Add(_expWarnGroup);
 
             // --- movement speed ---------------------------------------------------------------
-            _expSpeedGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 186), ForeColor = green };
+            _expSpeedGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 186), ForeColor = green,
+                                            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _expSpeed = new CheckBox { Location = new Point(14, 22), AutoSize = true };
 
             _expSpeedFactorLbl = new Label { Location = new Point(34, 62), AutoSize = true, ForeColor = Color.DimGray };
-            // Discrete notches rather than a free slider: each stop is a factor we can reason about,
+            // Discrete notches rather than a free slider: each stop is a factor that can be reasoned about,
             // and it maps 1:1 to the float baked into the patch.
             _expSpeedBar = new TrackBar
             {
@@ -903,7 +1011,7 @@ namespace MetalFatiguePatcher
             _expSpeedExample = new Label
             {
                 Location = new Point(482, 64), Size = new Size(216, 30), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f)
+                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _expSpeedBar.ValueChanged += (s, e) => UpdateSpeedLabels();
 
@@ -914,7 +1022,7 @@ namespace MetalFatiguePatcher
             _expSpeedNote = new Label
             {
                 Location = new Point(14, 140), Size = new Size(684, 40), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f)
+                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
             // The whole feature is off until it's ticked, so the knobs follow the checkbox.
@@ -928,7 +1036,8 @@ namespace MetalFatiguePatcher
             tab.Controls.Add(_expSpeedGroup);
 
             // Slim footer: more experimental features are expected here later.
-            _expSoonGroup = new GroupBox { Location = new Point(12, 296), Size = new Size(708, 62), ForeColor = green };
+            _expSoonGroup = new GroupBox { Location = new Point(12, 296), Size = new Size(708, 62), ForeColor = green,
+                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _expSoon = new Label
             {
                 Location = new Point(14, 24), Size = new Size(684, 30), ForeColor = Color.DimGray
@@ -1053,7 +1162,7 @@ namespace MetalFatiguePatcher
 
             if (gi == null || match == null || match.Variant == null)
             {
-                // Undecodable or an unknown/mismatched build: fall back to the text tree so we never
+                // Undecodable or an unknown/mismatched build: fall back to the text tree so it can never
                 // show wrong icons. The exe-info panel surfaces this + a report link.
                 _variantMatch = match;
                 _gameIcons = null;
@@ -1068,8 +1177,7 @@ namespace MetalFatiguePatcher
             BuildUnlockList();
             _unlockTree.Visible = false;
             _unlockList.Visible = true;
-            _unlockNote.Location = new Point(14, 172);   // list is taller than the tree was
-            _unlockNote.Size = new Size(680, 26);
+            LayoutUnlockArea();
         }
 
         /// <summary>Switch the unlock UI back to the plain text tree (unknown build / decode failure).</summary>
@@ -1079,9 +1187,48 @@ namespace MetalFatiguePatcher
             BuildUnlockTree();
             _unlockList.Visible = false;
             _unlockTree.Visible = true;
-            _unlockNote.Location = new Point(14, 136);   // tree layout
-            _unlockNote.Size = new Size(680, 62);
+            LayoutUnlockArea();
         }
+
+        /// <summary>
+        /// Position the unlock view and its note inside the frame, whatever size the frame currently
+        /// is. Everything here used to be four sets of constants spread over EnsureIcons, ShowTreeView
+        /// and HideBig, which pinned the list to the size the window happened to have at build time.
+        ///
+        /// The note keeps its own height and sits on the bottom edge; the tree or the icon list takes
+        /// all the room above it. The note is taller in tree mode because it then carries two full
+        /// sentences that wrap to about four lines in German and Spanish.
+        /// </summary>
+        void LayoutUnlockArea()
+        {
+            if (_unlockGroup == null || _unlockNote == null || _unlockTree == null || _unlockList == null) return;
+
+            int w = Math.Max(120, _unlockGroup.ClientSize.Width - 28);
+            // _iconToggles, not _unlockList.Visible: a control reports Visible == false for as long as
+            // the form it lives on has not been shown, so during construction the getter would answer
+            // "tree" no matter what was just assigned, and the note would keep the tree's height.
+            bool iconMode = _iconToggles != null;
+
+            int noteH = iconMode ? 26 : 62;
+            int noteTop = Math.Max(80, _unlockGroup.ClientSize.Height - noteH - 8);
+            _unlockNote.SetBounds(14, noteTop, w, noteH);
+
+            int top = iconMode ? 44 : 46;
+            int h = Math.Max(60, noteTop - 6 - top);
+
+            // While the list is popped out it belongs to the overlay; resizing it here would drag it
+            // back into the frame's coordinates mid-hover.
+            if (iconMode && !_listBig) _unlockList.SetBounds(14, top, w, h);
+            else if (!iconMode) _unlockTree.SetBounds(14, top, w, h);
+        }
+
+        /// <summary>
+        /// Whether the icon list still needs the hover pop-out. On a window with room to spare the
+        /// list is already as tall as the overlay would make it, so popping out would only cover the
+        /// rest of the tab for no gain. On a laptop-sized window it is still the only way to see more
+        /// than a row or two at a time.
+        /// </summary>
+        bool NeedsBigOverlay => _unlockList != null && _unlockList.Height < 240;
 
         /// <summary>Language switch / initial fill: rebuild whichever unlock view is active.</summary>
         void RebuildUnlockView()
@@ -1166,7 +1313,9 @@ namespace MetalFatiguePatcher
             var wasChecked = new System.Collections.Generic.HashSet<uint>(GatherUnlockAddrs());
             _iconToggles = new System.Collections.Generic.List<CheckBox>();
             var orange = Color.FromArgb(200, 130, 40);
-            int rowW = 654;
+            // Taken from the list as it is right now, not from a constant: the window is resizable,
+            // and a rebuild (language switch, exe change) can land at any width.
+            int rowW = Math.Max(120, _unlockList.ClientSize.Width - 8);
 
             _unlockList.SuspendLayout();
             _unlockList.Controls.Clear();
@@ -1259,7 +1408,7 @@ namespace MetalFatiguePatcher
 
             _unlockList.ResumeLayout();
             AttachHover(_unlockList);   // hovering ANY control enlarges the list, so clicks are consistent
-            if (_listBig) SetRowWidths(_unlockList.ClientSize.Width - 8);
+            FitRows();
         }
 
         /// <summary>Wire MouseEnter -> ShowBig on every control in the list so the enlarge is
@@ -1277,6 +1426,8 @@ namespace MetalFatiguePatcher
         void ShowBig()
         {
             if (_listBig || _gameIcons == null || _unlockList == null) return;
+            // Nothing to gain once the frame itself is roomy — see NeedsBigOverlay.
+            if (!NeedsBigOverlay) return;
             _listBig = true;
             _unlockGroup.Controls.Remove(_unlockList);
             _unlockOverlay.Controls.Add(_unlockList);
@@ -1297,14 +1448,20 @@ namespace MetalFatiguePatcher
             _unlockOverlay.Controls.Remove(_unlockList);
             _unlockOverlay.Visible = false;
             _unlockGroup.Controls.Add(_unlockList);
-            _unlockList.Location = new Point(14, 44);
-            _unlockList.Size = new Size(680, 124);
-            SetRowWidths(654);
+            LayoutUnlockArea();
+            FitRows();
             _unlockList.BringToFront();
+        }
+
+        /// <summary>Re-flow the icon rows to whatever width the list has right now.</summary>
+        void FitRows()
+        {
+            if (_unlockList != null) SetRowWidths(_unlockList.ClientSize.Width - 8);
         }
 
         void SetRowWidths(int w)
         {
+            if (w < 120) w = 120;   // a dragged-narrow window must never assign a negative width
             foreach (Control c in _unlockList.Controls)
                 if (c is FlowLayoutPanel f && f.WrapContents) f.Width = w;
         }
@@ -1313,7 +1470,14 @@ namespace MetalFatiguePatcher
 
         void BuildBanner()
         {
-            _banner = new Panel { Location = new Point(0, 0), Size = new Size(ClientSize.Width, 116) };
+            _banner = new Panel
+            {
+                Location = new Point(0, 0), Size = new Size(ClientSize.Width, 116),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            // A Panel does not repaint on resize, so the gradient would be stretched from a stale
+            // buffer and the bottom rule would stop short of the new right edge.
+            _banner.Resize += (s, e) => _banner.Invalidate();
             _banner.Paint += (s, e) =>
             {
                 // One faction per tab, sampled from the game's own faction art and darkened by a
@@ -1365,7 +1529,7 @@ namespace MetalFatiguePatcher
                 AutoSize = true, Location = new Point(148, 64)
             };
 
-            // language selector: clickable flags (auto-detected, user can override)
+            // language selector: clickable flags (auto-detected, can be overridden)
             _flagCells = new Panel[Lang.Codes.Length];
             var tip = new ToolTip();
             const int perRow = 5, cellW = 44, cellH = 33;   // 10 languages -> 5x2
@@ -1376,7 +1540,9 @@ namespace MetalFatiguePatcher
                 var cell = new Panel
                 {
                     Location = new Point(fx + (i % perRow) * cellW, 28 + (i / perRow) * cellH),
-                    Size = new Size(40, 29), Cursor = Cursors.Hand
+                    Size = new Size(40, 29), Cursor = Cursors.Hand,
+                    // The grid is laid out from the right edge, so it has to travel with it.
+                    Anchor = AnchorStyles.Top | AnchorStyles.Right
                 };
                 var fp = new PictureBox
                 {
@@ -1634,7 +1800,7 @@ namespace MetalFatiguePatcher
                     canPatch = false;
                     break;
                 default:
-                    // We recognise our own patch but have no clean original to work from. If the file
+                    // A Retrofit patch with no clean original to work from. If the file
                     // still carries a superseded release's cave layout, name it: "restore the original"
                     // is actionable, where "unknown version" would send them hunting the wrong problem.
                     // Only worth saying here — with a clean backup, re-patching rebuilds from it and
@@ -1650,7 +1816,7 @@ namespace MetalFatiguePatcher
                     break;
             }
 
-            // Grey out the version choice + patch button when we can't safely patch.
+            // Grey out the version choice + patch button when patching is not safe.
             _profGroup.Enabled = canPatch;
             _svGroup.Enabled = canPatch;
             _patchBtn.Enabled = canPatch;
@@ -1660,10 +1826,10 @@ namespace MetalFatiguePatcher
 
             // Once a real game folder is known, decode its part icons + detect the language variant
             // and switch the unlock UI from the text tree to the icon list (stays on the tree on any
-            // failure). Must run BEFORE we fill the read-out, which reports the detected variant.
+            // failure). Must run BEFORE the read-out is filled, which reports the detected variant.
             EnsureIcons(path);
 
-            // Reflect what is already installed — but only once per file, so the user
+            // Reflect what is already installed — but only once per file, so the player
             // can still tick/untick freely afterwards without being overridden.
             if (path != _svSyncedPath)
             {
@@ -1676,7 +1842,7 @@ namespace MetalFatiguePatcher
             FillExeInfo(c, profKey, path, svInstalled);
 
             // Show the state of the *installed* exe next to the box (the box itself is
-            // the desired state). Only meaningful once something of ours is installed.
+            // the desired state). Only meaningful once a Retrofit patch is installed.
             bool isPatched = c == Patcher.Compat.PatchedByUs || profKey != null;
             _svStatus.Visible = isPatched;
             if (isPatched)
@@ -1710,7 +1876,7 @@ namespace MetalFatiguePatcher
         void FillExeInfo(Patcher.Compat c, string profKey, string path, bool svInstalled)
         {
             bool haveFile = c != Patcher.Compat.Missing && !string.IsNullOrEmpty(path);
-            // Pristine / our-patch / our-patch-without-backup are all the supported Nightdive build.
+            // Pristine / Retrofit-patched / patched-without-backup are all the supported Nightdive build.
             bool knownBuild = c == Patcher.Compat.Pristine || c == Patcher.Compat.PatchedByUs
                               || (c == Patcher.Compat.Unsupported && profKey != null);
 
@@ -1768,15 +1934,22 @@ namespace MetalFatiguePatcher
             else _reportKind = null;
             _reportLink.Visible = _reportKind != null;
             _reportLink.Text = Lang.T("info.report");
-            _compatLabel.Width = _reportLink.Visible ? 472 : 680;   // yield room only when the link shows
             ReflowReadout();
         }
 
         /// <summary>Size the status line to its text and slide the info rows under it. The frame
-        /// already reserves the three-line worst case, so this only ever moves rows inside it.</summary>
+        /// already reserves the three-line worst case, so this only ever moves rows inside it.
+        /// Since 1.3.1 the width comes from the frame rather than from two constants, because the
+        /// window resizes — measuring against a stale 680 would wrap the text at the wrong place and
+        /// give the label a height that no longer matches what is drawn.</summary>
         void ReflowReadout()
         {
             if (_compatLabel == null || _infoBuild == null) return;
+
+            // 14px margin on both sides, matching every other child of the frame. When the report
+            // link shows it takes the right-hand end of the row, so the status yields that much.
+            int avail = _srcGroup.ClientSize.Width - 28;
+            _compatLabel.Width = Math.Max(120, _reportLink.Visible ? avail - _reportLink.Width - 8 : avail);
 
             int h = TextRenderer.MeasureText(
                 _compatLabel.Text, _compatLabel.Font,
@@ -1790,8 +1963,8 @@ namespace MetalFatiguePatcher
             _infoLegacy.Top    = top + 51;
         }
 
-        /// <summary>Open the GitHub issue tracker, pre-selecting the template that fits what we
-        /// could not support (unknown build vs unknown language patch). A diagnostic snapshot is
+        /// <summary>Open the GitHub issue tracker, pre-selecting the template that fits what
+        /// could not be supported (unknown build vs unknown language patch). A diagnostic snapshot is
         /// copied to the clipboard so the report is actionable — the issue form asks to paste it.</summary>
         void OpenReport()
         {

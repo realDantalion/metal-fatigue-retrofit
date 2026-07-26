@@ -116,7 +116,7 @@ namespace MetalFatiguePatcher
         /// <summary>
         /// Determines whether the given MFatigue.exe can be patched by this tool.
         /// Uses an exact SHA-256 match against the known build, falling back to the
-        /// byte signature at every patch site, then to detecting our own patched output.
+        /// byte signature at every patch site, then to detecting Retrofit's own patched output.
         /// </summary>
         public static Compat Check(string exePath, out string detectedProfileKey, out bool exactHash)
         {
@@ -144,7 +144,7 @@ namespace MetalFatiguePatcher
             var bak = exePath + ".bak";
             bool cleanBackup = File.Exists(bak) && LooksPristine(bak);
 
-            // Patched (by us or otherwise) but we still hold a clean original -> recoverable.
+            // Patched (by Retrofit or otherwise) but a clean original is still on disk -> recoverable.
             if (cleanBackup) return Compat.PatchedByUs;
 
             return Compat.Unsupported;

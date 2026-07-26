@@ -4,7 +4,7 @@
 // index (PartsData.IconIndex, which is the ENGLISH ordering) points at the wrong picture. This
 // class maps the canonical English index to each variant's actual file index.
 //
-// Design goals the project asked for (2026-07-24):
+// Design goals (2026-07-24):
 //   * table-driven and extensible — a new variant is ONE entry in Known, nothing else;
 //   * many behaviours per variant, not just a single offset (icon removals + shift, UI language,
 //     display name), so odd cases in other language patches can be expressed;
@@ -12,7 +12,7 @@
 //     Legs=green) independently of language, so a wrong/unknown variant fails safe to the text
 //     tree instead of silently showing wrong icons.
 //
-// Verified 2026-07-24 against the user's two installs (Steam=English, GOG=German fan patch),
+// Verified 2026-07-24 against both reference installs (Steam=English, GOG=German fan patch),
 // decoding both with the shipped GameIcons: English 77 icons / identity = 48/48 parts correct;
 // German 74 icons (the 3 alien icons removed) / rule below = 46 correct, 0 wrong, 2 absent (the
 // Hedoth alien parts, correctly iconless in German).

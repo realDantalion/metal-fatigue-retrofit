@@ -1,5 +1,5 @@
 // Runtime combot-part icon loader. Decodes the build-menu part icons straight from the
-// user's OWN game files (TBD\structures{X,Y,Z}.tbd) at run time, so NO copyrighted game art
+// player's OWN game files (TBD\structures{X,Y,Z}.tbd) at run time, so NO copyrighted game art
 // is ever shipped inside the patcher. Every entry point is wrapped so any failure (missing
 // files, a modded/localised install, an unexpected layout) returns null and the caller falls
 // back to the plain text tree.

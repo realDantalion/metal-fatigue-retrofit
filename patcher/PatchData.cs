@@ -95,8 +95,8 @@ namespace MetalFatiguePatcher
         // rescue" that reused an arbitrary slot was tried and REVERTED (2026-07-25): the 3 name
         // "styles" per record are per-CORPORATION (Rimtech callsigns "Alpha-2" / MilAgro "Mad Dogs"
         // / Neuropa "Benevolence"), NOT per-tier — tiers differ only by which SLICE of the 50 names
-        // they hold — so reusing a foreign slot would surface another tier's name, which the user
-        // forbids ("ein tier darf AUSSCHLIESSLICH die eigenen tier namen haben"). A correct fix would
+        // they hold — so reusing a foreign slot would surface another tier's name. A tier must only
+        // ever show names from its own slice; that rule is not negotiable. A correct fix would
         // have to pre-assign each tier a guaranteed disjoint slice at setup (SetupCrewNames rework).
         //
         // Shared by the Maximum version and the "unlimited elite crews" cheat; exact-duplicate sites
@@ -190,9 +190,9 @@ namespace MetalFatiguePatcher
         // (mov edi,[esi+0x1c] @ 0x407b6c) and handed to the render engine, which clears
         // that player's fog (call [pRendEng+0x8c] @ 0x407b90). The cave keeps the owner
         // unless it is an ALLY of the local player — then it substitutes the local player
-        // id, so the ally's vision clears OUR fog instead. Asks the game's own static
+        // id, so the ally's vision clears the local player's fog instead. Asks the game's own static
         // CPlayerManager::IsAlly, so in-game alliance changes are honoured automatically.
-        // eax (already masked for the call) is saved across the cdecl call; esi/edi are ours.
+        // eax (already masked for the call) is saved across the cdecl call; esi/edi are free to use.
         const long SV_HOOK = 0x7b6c;
 
         static byte[] SharedVisionCaveBody() => new CaveAsm(SV_CAVE)
@@ -216,7 +216,7 @@ namespace MetalFatiguePatcher
         // if the local player's bit is absent. ORing the bit in makes it buildable WITH its icon
         // (merely bypassing the test leaves the icon logic seeing it unavailable).
         //
-        // We hook the 11-byte gate into a cave that walks a table of the chosen descriptor
+        // The 11-byte gate is hooked into a cave that walks a table of the chosen descriptor
         // addresses; on a match it ORs the player bit, then either way re-runs the original
         // mov/test/je. Loop-over-table (not inline cmp per part) keeps the cave small and the
         // jumps short regardless of how many parts are selected.
@@ -260,8 +260,8 @@ namespace MetalFatiguePatcher
         // --- Superseded layouts --------------------------------------------------------------------
         // An exe patched by an older release carries caves at offsets this build no longer writes, so
         // re-patching would leave that dead code behind. Patcher.Apply always rebuilds from the
-        // pristine .bak, which wipes it — the case that needs a word to the user is a patched exe with
-        // no clean backup, where we cannot undo the old layout ourselves. Detecting it lets us say so
+        // pristine .bak, which wipes it — the case that needs saying is a patched exe with
+        // no clean backup, where the old layout cannot be undone from here. Detecting it makes it possible to say so
         // instead of failing with a generic "unsupported build".
         //
         // A layout is identified by where its HOOKS point, not by cave contents. Cave bytes are not

@@ -22,7 +22,7 @@ using System.Threading;
 namespace MetalFatiguePatcher
 {
     /// <summary>
-    /// Plays an OGG file so the user can tell one track from another while sorting them.
+    /// Plays an OGG file so one track can be told from another while sorting them.
     ///
     /// Decoding uses the game's OWN libvorbisfile.dll, loaded from the selected installation. That
     /// keeps the patcher a single dependency-free exe — the deliberate design of this project — and
@@ -69,7 +69,7 @@ namespace MetalFatiguePatcher
 
         // Buffer state lives in WAVEHDR.dwFlags. Read it, never write it: waveOutPrepareHeader sets
         // WHDR_PREPARED there, and overwriting the field clears that bit — waveOutWrite then rejects
-        // every buffer with WAVERR_UNPREPARED and nothing plays, silently. A buffer is ours to refill
+        // every buffer with WAVERR_UNPREPARED and nothing plays, silently. A buffer is free to refill
         // exactly when the driver is not holding it, i.e. WHDR_INQUEUE is clear.
         const int WHDR_INQUEUE = 0x10;
         const int BufferCount = 4;
@@ -230,7 +230,7 @@ namespace MetalFatiguePatcher
             try
             {
                 // waveOutReset returns every queued buffer, which clears WHDR_INQUEUE on all of them —
-                // so the pump sees them as free again without us touching the flags.
+                // so the pump sees them as free again without the flags being touched.
                 waveOutReset(_wave);
                 ov_time_seek(_vf, Math.Max(0, Math.Min(Length, seconds)));
                 _seekBase = seconds;

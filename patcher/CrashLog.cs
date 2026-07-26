@@ -25,8 +25,8 @@ using System.Windows.Forms;
 namespace MetalFatiguePatcher
 {
     /// <summary>
-    /// Last line of defence: turns an unhandled exception into a text file the user can attach to a
-    /// bug report, instead of the bare .NET crash dialog that tells us nothing.
+    /// Last line of defence: turns an unhandled exception into a text file the player can attach to a
+    /// bug report, instead of the bare .NET crash dialog, which says nothing useful.
     ///
     /// The report is written next to the patcher exe (it runs elevated, so that folder is writable
     /// even under Program Files) and falls back to %TEMP% if that ever fails — a crash handler that
@@ -78,9 +78,9 @@ namespace MetalFatiguePatcher
             // quietly changing which of the two handlers below sees the exception.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
 
-            // A failure on the UI thread leaves the process perfectly alive, so we report it and let
-            // the user carry on — same call the default WinForms dialog makes, except we keep the
-            // evidence. A failure on any other thread is already fatal to the process by .NET's own
+            // A failure on the UI thread leaves the process perfectly alive, so it is reported and lets
+            // the player carry on — the same call the default WinForms dialog makes, except the evidence
+            // is kept. A failure on any other thread is already fatal to the process by .NET's own
             // rules; there is nothing to keep running.
             Application.ThreadException += (s, e) => Handle(e.Exception, "ui thread", false);
             AppDomain.CurrentDomain.UnhandledException += (s, e) => Handle(e.ExceptionObject as Exception, ThreadLabel(), true);
@@ -156,9 +156,9 @@ namespace MetalFatiguePatcher
                 }
                 else
                 {
-                    // Suppressed, not failed. Point at the last file we did write instead of claiming
+                    // Suppressed, not failed. Point at the last file actually written instead of claiming
                     // nothing could be saved — a repeat says the same thing as the report already on
-                    // disk, and sending the user hunting for a file that exists is worse.
+                    // disk, and sending the player hunting for a file that exists is worse.
                     path = _lastReport;
                 }
 
@@ -189,7 +189,7 @@ namespace MetalFatiguePatcher
         /// <summary>
         /// Append the report to today's log and return its full path. One file per day, not one per
         /// fault: a folder full of near-identical .txt files is worse to hand over than a single one,
-        /// and it keeps a user who hits something twice in a week from having to pick which file
+        /// and it keeps anyone who hits something twice in a week from having to pick which file
         /// matters. Every entry carries its own timestamp, so the file stays readable as it grows.
         /// Throws only if no location worked.
         /// </summary>
@@ -230,7 +230,7 @@ namespace MetalFatiguePatcher
         /// Drop error logs older than <see cref="KeepDays"/> at startup, so the folder next to the exe
         /// does not accumulate forever. The date comes from the file name, not from its timestamp: a
         /// log that was copied or restored keeps its name but not its modification date, and deleting
-        /// by name is the only way to be sure we only ever remove files this class wrote. Anything
+        /// by name is the only way to be sure nothing but this class's own files is removed. Anything
         /// whose name does not parse is left alone.
         /// </summary>
         static void Prune()
@@ -354,7 +354,7 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
-        /// Take the Windows user name out of anything we write. Real names live in profile paths far
+        /// Take the Windows user name out of everything written here. Real names live in profile paths far
         /// more often than people expect, and these reports are meant to be pasted in public.
         /// </summary>
         static string Scrub(string s)
