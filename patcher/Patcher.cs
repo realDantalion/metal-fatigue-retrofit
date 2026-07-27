@@ -206,6 +206,10 @@ namespace MetalFatiguePatcher
             if (extra != null && extra.Count > 0)
                 sites.AddRange(extra);
 
+            // Stamped on every patch: a later release has to be able to tell whose bytes
+            // these are before it considers writing over them.
+            sites.AddRange(PatchData.VersionStampSites());
+
             // The Maximum version and the "unlimited elite crews" cheat both request the identical
             // one-byte crew-name fix. Drop exact duplicates (same offset AND same bytes) so picking
             // both is not mistaken for a collision; conflicting overlaps still fail below.
@@ -242,6 +246,14 @@ namespace MetalFatiguePatcher
 
             RecordPatched();
             log(Lang.T("log.verified"));
+        }
+
+        /// <summary>The Retrofit version that patched this file, or null if there is no stamp.
+        /// Absent means either pristine or patched before 1.4.0, which is when stamping began.</summary>
+        public static string StampOf(string exePath)
+        {
+            try { return PatchData.ReadStamp(File.ReadAllBytes(exePath)); }
+            catch { return null; }
         }
 
         /// <summary>A backup that exists AND still verifies as an untouched original.</summary>

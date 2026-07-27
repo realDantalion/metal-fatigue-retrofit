@@ -29,12 +29,20 @@ namespace MetalFatiguePatcher
     public sealed class Profile
     {
         public string Key;
+        public double Factor;   // unit budget as a multiple of vanilla
         public List<PatchSite> Sites;
-        public bool Hidden;   // easter-egg profiles are only shown once unlocked
 
         // Display strings are localized — see Lang.
-        public string Title       => Lang.ProfileTitle(Key);
-        public string Description => Lang.ProfileDesc(Key);
+        // A factor needs no translation. Only Maximum keeps a localised name, because
+        // "12.8x" would be a worse label than the word for what it is.
+        public string Title => Factor == PatchData.MaximumFactor
+            ? Lang.ProfileTitle("unleashed")
+            : Factor.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture) + "×";
+        // Maximum keeps its own text; every other step differs only by a number, so one
+        // sentence with the factor filled in beats nine near-identical translations.
+        public string Description => Factor == PatchData.MaximumFactor
+            ? Lang.ProfileDesc("unleashed")
+            : string.Format(Lang.T("prof.units.desc"), Title);
     }
 
     /// <summary>
@@ -122,6 +130,17 @@ namespace MetalFatiguePatcher
             public CaveAsm Jmp(uint target) { return Branch(0xE9, target); }
             CaveAsm Branch(byte op, uint target)
             {
+                // A branch target is an absolute VA. Passing IMAGE_BASE + someVA - i.e. adding the
+                // base to an address that already carries it - lands 0x400000 past the end of the
+                // image, and the game dies with an invalid unwind target the first time the cave
+                // runs. That shipped once (2026-07-27) because the pre-flight check only compared
+                // the expected ORIGINAL bytes at each site and never asked where the cave jumps.
+                if (target <= IMAGE_BASE || target >= IMAGE_BASE + KnownSize)
+                    throw new System.InvalidOperationException(string.Format(
+                        "Cave at 0x{0:x} branches to 0x{1:x8}, which is outside the image " +
+                        "(0x{2:x8}..0x{3:x8}). A VA with the image base added twice looks exactly like this.",
+                        _caveOff, target, IMAGE_BASE, IMAGE_BASE + KnownSize));
+
                 uint at = (uint)(IMAGE_BASE + _caveOff + _b.Count);
                 uint rel = target - (at + 5);
                 _b.Add(op);
@@ -159,7 +178,6 @@ namespace MetalFatiguePatcher
                 Mem(0xd243, "F4FF9F00", "F4FFFF07"),
                 Mem(0xd5b4, "00008000", "00008007"),
             };
-            l.Add(CrewNameFix());
             return l;
         }
 
@@ -425,6 +443,7 @@ namespace MetalFatiguePatcher
         // BEFORE the fmul: a je at 0x438c5d targets 0x438c6a, so a 5-byte jmp written at the fmul
         // itself would be jumped into mid-instruction.
         const long SPEED_CAVE = 0xd1f30;   // right after the crew-name cave's reserved 96 bytes
+        const long SPEED_CAVE_END = 0xd1fa0;   // bounded since 1.4.0: the crew-accounting caves follow
         const long SPEED_HOOK1 = 0x38bf1; const uint SPEED_RET1 = 0x438bf7;   // fld [ecx+0x14]; mov eax,[ecx+0xc]
         const long SPEED_HOOK2 = 0x38c61; const uint SPEED_RET2 = 0x438c6a;   // fld [0x4d7ea4]; fmul [ecx+0x14]
         const long SPEED_HOOK3 = 0x38c77; const uint SPEED_RET3 = 0x438c80;   // fmul [ecx+0x14]; fld [ecx+0xa0]
@@ -459,10 +478,27 @@ namespace MetalFatiguePatcher
             {
                 if (!allPlayers)
                 {
+                    // The owner comes from the THGOBJECT at mover+0x40, whose HIGH WORD is the
+                    // player number - the same thing CPlayerManager::AmLocalMachine (0x42e7e0)
+                    // compares against ?PlayerIndex@@3HA at 0x5229b8.
+                    //
+                    // NOT [ecx+0x28]. That is CMover::m_player, and for these objects it is dead:
+                    // ??0CMover zero-initialises it, ?SetPlayer@CMover has no call site in the
+                    // image, and the only code that fills it is the inlined SetPlayer in the
+                    // projectile path. CVehicle attaches through CMover::Attach and never writes
+                    // it, so the gate was comparing a constant 0 against the local player index and
+                    // was false for everyone, including the local player - which is exactly how it
+                    // behaved: "my units only" did nothing at all while "all players" worked.
+                    // (Wrong since 1.2.0, found 2026-07-27.)
+                    //
+                    // The manager-pointer idiom from the other player-scoped caves cannot be used
+                    // here: it compares a CPlayerManager* against `this`, which only holds when
+                    // `this` is a CBasicGobject. Here it is a CMover (sizeof 0x64) - reading the
+                    // +0x150 owner field would run off the end of the object.
                     Emit("50");                        // push eax
-                    Emit("8b4128");                    // mov  eax,[ecx+0x28]     ; this mover's owner
-                    Emit("3b05"); U32(LOCAL_PLAYER);   // cmp  eax,[localPlayer]
-                    Emit("58");                        // pop  eax
+                    Emit("0fb74142");                  // movzx eax, word [ecx+0x42]   ; owner player
+                    Emit("3b05"); U32(LOCAL_PLAYER);   // cmp  eax,[?PlayerIndex@@3HA]
+                    Emit("58");                        // pop  eax   (POP leaves EFLAGS alone)
                     Emit("7506");                      // jne  +6                 ; skip the fmul
                 }
                 Emit("d80d"); U32(factorVa);           // fmul dword [factor]
@@ -493,10 +529,10 @@ namespace MetalFatiguePatcher
             Emit("d981a0000000");                      // fld  dword [ecx+0xa0]   (relocated)
             JmpBack(SPEED_RET3);
 
-            if (SPEED_CAVE + c.Count > CAVE_ZONE_END)
+            if (SPEED_CAVE + c.Count > SPEED_CAVE_END)
                 throw new System.InvalidOperationException(
                     string.Format("Movement-speed cave overflows .text free space ({0} bytes, max {1}).",
-                                  c.Count, CAVE_ZONE_END - SPEED_CAVE));
+                                  c.Count, SPEED_CAVE_END - SPEED_CAVE));
 
             sites.Add(new PatchSite { Name = "move_speed_cave", Offset = SPEED_CAVE, Original = H(Zeros(c.Count)), Patched = c.ToArray() });
             sites.Add(SpeedHook("move_speed_hook1", SPEED_HOOK1, stub1, "d941148b410c"));
@@ -605,6 +641,147 @@ namespace MetalFatiguePatcher
         const long LEVEL_SITE = 0x7bb03;
         const string LevelOriginal = "8b89080500008bc6c1e00703c68d14495f5e8d0440c1e0028b84d024ea5600c20400";
         const string LevelPatched  = "8b89080500005f5e83f932730c69c1cd000000c1e80bc2040031c0c2040090909090";
+
+        // --- High-tier crew quota: give it back when the crew dies ---------------------------------
+        // A[level] at [player+lvl*4+0x5d0] is the per-tier elite quota. Proven by its only reader:
+        // CanBuildCrew (0x47c220) is called from exactly one place, 0x460267, inside a loop that
+        // steps 1..4 through the pointer table at 0x5112a0 (0x568b70/0x568b08/0x568aa0/0x568a38 =
+        // tiers 2..5; tier 1's 0x568bd8 is deliberately absent) and enables or hides that tier's
+        // build button through the mask setters at 0x4b79e0 / 0x4b7a90 / 0x4b7af0. The quota values
+        // are the table at 0x512118: 5, 4, 3, 2.
+        //
+        // Vanilla decrements A[level] and B[level] when a crew of that tier is created and never
+        // gives them back. Lose both tier-5 crews and the tier-5 button is gone for the rest of the
+        // match — the crews are dead permanently, not merely unavailable. That is the bug.
+        //
+        // The fix reads the slot's level at the instruction that is about to zero it, then credits
+        // A[level] and B[level]. Both, because CanBuildCrew tests A > 0 AND A - B > 0, and those two
+        // are only decremented in lockstep; crediting one alone would drift the difference.
+        //
+        // The relocated store runs unconditionally, exactly as vanilla does, including vanilla's own
+        // out-of-range write for ci = 99/100. Only the credit is guarded, on both ci and level.
+        const long RELEASE_CAVE = 0xd1fa0;
+        const long RELEASE_HOOK = 0x7ba2d;   // last store of the cc == 0 branch; 7 bytes relocated
+        const uint RELEASE_RET  = 0x47ba34;  // pop edi / pop esi / ret 8 - also a je target, never overrun
+
+        static byte[] ReleaseCaveBody() => new CaveAsm(RELEASE_CAVE)
+            .Raw("8b948818e45600")       // mov edx, [eax+ecx*4+0x56e418]  ; level, before it is zeroed
+            .Raw("89bc8818e45600")       // relocated: mov [eax+ecx*4+0x56e418], edi
+            .Raw("3db0040000")           // cmp eax, 0x4b0                 ; eax = ci*0x18, so ci vs 50
+            .Raw("7316")                 // jae back                       ; unsigned: catches ci = 99/100
+            .Raw("83fa05")               // cmp edx, 5                     ; a level outside 0..4 is corrupt
+            .Raw("7311")                 // jae back
+            .Raw("8d0411")               // lea eax, [ecx+edx]             ; ecx = idx*387, so *4 gives
+            .Raw("ff0485d4e95600")       // inc [eax*4+0x56e9d4]           ; idx*0x60c + level*4: A[level]++
+            .Raw("ff0485fce95600")       // inc [eax*4+0x56e9fc]           ; B[level]++
+            .Jmp(RELEASE_RET)
+            .Bytes;
+
+        /// <summary>Return a high-tier crew's build quota when it dies. Vanilla charges the quota at
+        /// creation and never refunds it, so a lost elite crew can never be replaced.</summary>
+        public static List<PatchSite> CrewQuotaReleaseSites()
+        {
+            var cave = ReleaseCaveBody();
+            return new List<PatchSite>
+            {
+                new PatchSite { Name = "crew_quota_cave", Offset = RELEASE_CAVE, Original = H(Zeros(cave.Length)), Patched = cave },
+                new PatchSite { Name = "crew_quota_hook", Offset = RELEASE_HOOK, Original = H("89bc8818e45600"),
+                                Patched = HookJmp(RELEASE_HOOK, RELEASE_CAVE, 7) },
+            };
+        }
+
+        // --- Keep the one-byte name reuse from draining the census --------------------------------
+        // CrewNameFix turns the "is this name in use?" test into an unconditional jump, so a tier
+        // reuses its own names instead of failing. The FOUND path behind it still charges the census
+        // though: A[L]-- and B[L]-- run for a slot that was never free. A drains faster than in
+        // vanilla, CanBuildCrew clamps it to 0 at 0x47c252, and the build button greys out silently.
+        //
+        // The decrements cannot simply be skipped: the store that finishes them (0x47b8b3) sits after
+        // the cursor update and reuses ecx/edi from the block. So the cave pre-credits instead —
+        // if the slot was already taken, A[L]++ / B[L]++ first and let vanilla's decrements cancel
+        // them out. eax is dead here (last read at 0x47b880, overwritten at 0x47b889), so nothing
+        // needs saving, and no flags survive past 0x47b8b0's own cmp.
+        const long FLIPACC_CAVE = 0xd1fd0;
+        const long FLIPACC_HOOK = 0x7b882;   // mov [ecx+0x10], 1 — the store that loses the old value
+        const uint FLIPACC_RET  = 0x47b889;
+
+        static byte[] FlipAccountingCaveBody() => new CaveAsm(FLIPACC_CAVE)
+            .Raw("83791000")             // cmp dword [ecx+0x10], 0   ; was the slot free?
+            .Raw("c7411001000000")       // relocated: mov [ecx+0x10], 1
+            .Raw("7411")                 // je back                   ; free -> vanilla accounting
+            .Raw("8b4114")               // mov eax, [ecx+0x14]       ; eax = slot.level
+            .Raw("ff8486d0050000")       // inc [esi+eax*4+0x5d0]     ; A[L]++
+            .Raw("ff8486f8050000")       // inc [esi+eax*4+0x5f8]     ; B[L]++
+            .Jmp(FLIPACC_RET)
+            .Bytes;
+
+        /// <summary>Ships with <see cref="CrewNameFix"/> and only with it: without the flip the
+        /// allocator never reaches this path with an occupied slot.</summary>
+        public static List<PatchSite> CrewFlipAccountingSites()
+        {
+            var cave = FlipAccountingCaveBody();
+            return new List<PatchSite>
+            {
+                new PatchSite { Name = "crew_flipacc_cave", Offset = FLIPACC_CAVE, Original = H(Zeros(cave.Length)), Patched = cave },
+                new PatchSite { Name = "crew_flipacc_hook", Offset = FLIPACC_HOOK, Original = H("c7411001000000"),
+                                Patched = HookJmp(FLIPACC_HOOK, FLIPACC_CAVE, 7) },
+            };
+        }
+
+        /// <summary>
+        /// Lift the crew-name limit: a tier reuses its own names instead of running out, so more
+        /// than 50 crews can be alive at once. Two sites, never one without the other — the flip
+        /// alone would let the FOUND path charge the free-slot census for a slot that was never
+        /// free. Shipped as its own option since 1.4.0; before that it rode along with Maximum,
+        /// where nobody could tell it apart from the unit budget.
+        /// </summary>
+        public static List<PatchSite> CrewLimitOffSites()
+        {
+            var l = new List<PatchSite> { CrewNameFix() };
+            l.AddRange(CrewFlipAccountingSites());
+            return l;
+        }
+
+        // --- Version stamp -------------------------------------------------------------------------
+        // Eight bytes at the very end of the cave zone: "MFRT" plus major/minor/patch and one spare.
+        // Written by every patch since 1.4.0, so any later release can tell at a glance whether a
+        // file was touched by a different version of this tool and refuse to build on top of it.
+        //
+        // Before 1.4.0 nothing was stamped, and 1.2 and 1.3 are genuinely indistinguishable - their
+        // patch sites are byte-identical, the only later addition being the music table, which is
+        // only present when the player imported music. Such a file reads as "ours, but unstamped",
+        // which calls for the same action anyway: restore the original first.
+        const long STAMP_SITE = 0xd1ff8;   // last 8 bytes before CAVE_ZONE_END
+        static readonly byte[] StampMagic = { 0x4D, 0x46, 0x52, 0x54 };   // "MFRT"
+
+        public static List<PatchSite> VersionStampSites()
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            var b = new byte[8];
+            System.Array.Copy(StampMagic, b, 4);
+            b[4] = (byte)v.Major; b[5] = (byte)v.Minor; b[6] = (byte)v.Build; b[7] = 0;
+            return new List<PatchSite>
+            {
+                new PatchSite { Name = "version_stamp", Offset = STAMP_SITE, Original = H(Zeros(8)), Patched = b },
+            };
+        }
+
+        /// <summary>The version that patched this file, or null when there is no stamp (pre-1.4.0,
+        /// or a pristine exe).</summary>
+        public static string ReadStamp(byte[] d)
+        {
+            if (d == null || d.LongLength < STAMP_SITE + 8) return null;
+            for (int i = 0; i < 4; i++)
+                if (d[STAMP_SITE + i] != StampMagic[i]) return null;
+            return string.Format("{0}.{1}.{2}", d[STAMP_SITE + 4], d[STAMP_SITE + 5], d[STAMP_SITE + 6]);
+        }
+
+        /// <summary>The version of this patcher, in the same shape ReadStamp returns.</summary>
+        public static string OwnVersion()
+        {
+            var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            return string.Format("{0}.{1}.{2}", v.Major, v.Minor, v.Build);
+        }
 
         /// <summary>Assemble the patch sites for the chosen cheat features and scope.</summary>
         public static List<PatchSite> CheatFeatureSites(ICollection<string> features, bool allPlayers)
@@ -730,6 +907,7 @@ namespace MetalFatiguePatcher
         {
             public bool RimtechMusic;
             public bool Fog, FreeBuild, Turbo, Crews;
+            public bool CrewLimitOff;                  // the crew-name limit lifted on its own (1.4.0+)
             public bool CheatScopeAll;                 // player vs all for free-build / instant-build
             public bool PartsUnlock, PartsScopeAll;
             public readonly List<uint> UnlockedAddrs = new List<uint>();
@@ -770,6 +948,8 @@ namespace MetalFatiguePatcher
             r.CheatScopeAll = fbAll || (tbAll && !fbPlayer);
 
             r.Crews = Has(d, 0x7c220, "b863000000c20400");
+            // The flip is two bytes anywhere; what identifies the option is its accounting hook.
+            r.CrewLimitOff = Has(d, 0x7b81d, "eb57") && Has(d, FLIPACC_HOOK, HookJmp(FLIPACC_HOOK, FLIPACC_CAVE, 7));
             r.RimtechMusic = HasRimtechMusic(d);
 
             // parts unlock: hook present at the gate, then read the cave's address table
@@ -803,45 +983,59 @@ namespace MetalFatiguePatcher
             return r;
         }
 
-        public static readonly List<Profile> Profiles = new List<Profile>
+        /// <summary>
+        /// The unit budget, as a multiple of vanilla. Three DWORDs and nothing else: the arena the
+        /// game allocates once at startup, a sentinel it keeps 0xC below the end, and the threshold
+        /// at which IsGameMemoryLow refuses further production. Vanilla is a 10 MB arena with an
+        /// 8 MB threshold, so the ratio is 80% and every step keeps it.
+        ///
+        /// Generated rather than written out: nine steps by hand would be 27 hand-computed hex
+        /// literals, and a typo in a sentinel is exactly the kind of thing that shows up as a
+        /// crash hours into a match. Maximum is the one exception - it pushes the threshold to
+        /// 94% because at that size the headroom matters more than the safety net.
+        /// </summary>
+        public static readonly double[] UnitFactors = { 1.5, 2, 2.5, 3, 3.5, 4, 6, 8, MaximumFactor };
+
+        /// <summary>The rightmost step. Not on the 10 MB grid, so it carries its own numbers.</summary>
+        public const double MaximumFactor = 12.8;
+
+        static string Le32(uint v) =>
+            string.Format("{0:X2}{1:X2}{2:X2}{3:X2}", v & 0xff, (v >> 8) & 0xff, (v >> 16) & 0xff, v >> 24);
+
+        /// <summary>Key for a factor. The four original keys are kept verbatim so an exe patched by
+        /// an earlier release still identifies itself.</summary>
+        public static string KeyFor(double f) =>
+            f == MaximumFactor ? "unleashed" :
+            f == 2 ? "balanced2x" :
+            f == 4 ? "balanced4x" :
+            f == 8 ? "balanced8x" :
+            "units" + f.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture).Replace(".", "_") + "x";
+
+        static Profile UnitProfile(double f)
         {
-            new Profile
+            uint arena = (uint)(f * 10 * 1024 * 1024);
+            uint thresh = f == MaximumFactor ? 120u * 1024 * 1024 : (uint)(arena * 0.8);
+            return new Profile
             {
-                Key = "unleashed",
-                Sites = UnleashedSites()
-            },
-            // --- Native ~50 combot limit, only the unit budget scales ---
-            new Profile
-            {
-                Key = "balanced2x",
+                Key = KeyFor(f),
+                Factor = f,
                 Sites = new List<PatchSite>
                 {
-                    Mem(0xd231, "0000A000", "00004001"), // arena 20 MB
-                    Mem(0xd243, "F4FF9F00", "F4FF3F01"), // sentinel = size - 0xC
-                    Mem(0xd5b4, "00008000", "00000001"), // threshold 16 MB  (2x vanilla)
+                    Mem(0xd231, "0000A000", Le32(arena)),        // arena
+                    Mem(0xd243, "F4FF9F00", Le32(arena - 0xC)),  // sentinel = arena - 0xC
+                    Mem(0xd5b4, "00008000", Le32(thresh)),       // production threshold
                 }
-            },
-            new Profile
-            {
-                Key = "balanced4x",
-                Sites = new List<PatchSite>
-                {
-                    Mem(0xd231, "0000A000", "00008002"), // arena 40 MB
-                    Mem(0xd243, "F4FF9F00", "F4FF7F02"), // sentinel
-                    Mem(0xd5b4, "00008000", "00000002"), // threshold 32 MB  (4x vanilla)
-                }
-            },
-            new Profile
-            {
-                Key = "balanced8x",
-                Sites = new List<PatchSite>
-                {
-                    Mem(0xd231, "0000A000", "00000005"), // arena 80 MB
-                    Mem(0xd243, "F4FF9F00", "F4FFFF04"), // sentinel
-                    Mem(0xd5b4, "00008000", "00000004"), // threshold 64 MB  (8x vanilla)
-                }
-            },
-        };
+            };
+        }
+
+        public static readonly List<Profile> Profiles = BuildProfiles();
+
+        static List<Profile> BuildProfiles()
+        {
+            var l = new List<Profile>();
+            foreach (var f in UnitFactors) l.Add(UnitProfile(f));
+            return l;
+        }
 
         public static Profile ByKey(string key) => Profiles.Find(p => p.Key == key);
     }

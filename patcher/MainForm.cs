@@ -28,7 +28,7 @@ namespace MetalFatiguePatcher
     {
         TextBox _pathBox, _log;
         RadioButton _srcAuto, _srcSteam, _srcGog;
-        RadioButton _prof2x, _prof4x, _prof8x, _profUnleashed, _profCheats, _profCheatsAll;
+        RadioButton _prof2x, _prof4x, _prof8x, _profUnleashed;
         Label _profDesc, _bannerTitle, _bannerSub, _exeLabel, _compatLabel, _credits, _svStatus, _infoLegacy;
         Label _infoBuild, _infoVariant, _infoInstalled;   // exe read-out area
         LinkLabel _contactLink, _licenseLink, _reportLink;
@@ -49,6 +49,11 @@ namespace MetalFatiguePatcher
         CheckBox _sharedVision;
 
         // --- 2.0 cheat tab ---
+        string _foreignVersion;   // set when the file carries another release's stamp
+        TrackBar _unitBar;
+        Label _unitValue;
+        CheckBox _crewLimitOff;
+        Label _crewLimitNote, _svNote;
         TabControl _tabs;
         TabPage _tabPatch, _tabCheats, _tabExperimental, _tabMusic;
         GroupBox _cheatGroup, _globalGroup, _unlockGroup;
@@ -73,7 +78,8 @@ namespace MetalFatiguePatcher
         System.Windows.Forms.Timer _pulseTimer;
         bool _listBig;
         Label _svFogNote, _fogSvNote;   // "disabled because ..." notes for the fog/shared-vision clash
-        bool _fogSvSyncing;    // guards the fog <-> shared-vision mutual-exclusion cascade
+        bool _fogSvSyncing;
+        bool _crewSyncing;    // guards the fog <-> shared-vision mutual-exclusion cascade
 
         // --- experimental tab (features that change core behaviour and may break things) ---
         GroupBox _expWarnGroup, _expSpeedGroup, _expSoonGroup;
@@ -147,7 +153,10 @@ namespace MetalFatiguePatcher
 
         public MainForm()
         {
-            ClientSize = new Size(760, 782);
+            // 830, not 782: the options frame gained a second checkbox in 1.4.0 and the Patch
+            // tab is the tallest of the four. Shrinking a frame to fit would make it jump around
+            // whenever the status line changes height, which is worse than 48 more pixels.
+            ClientSize = new Size(760, 830);
             StartPosition = FormStartPosition.CenterScreen;
 
             // Resizable since 1.3.1. The window used to be fixed at 776x821 including its frame,
@@ -171,7 +180,7 @@ namespace MetalFatiguePatcher
             // Tabs: "Patch" (the bug-fix, unchanged) and "Cheats" (2.0 — individually selectable).
             _tabs = new TabControl
             {
-                Location = new Point(12, 126), Size = new Size(736, 434),
+                Location = new Point(12, 126), Size = new Size(736, 482),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             // Each page scrolls on its own rather than the whole form. Shrinking the window shrinks
@@ -191,7 +200,7 @@ namespace MetalFatiguePatcher
             // and a child anchored to the right would cache its distance to that stub's edge and
             // keep it forever, ending up hundreds of pixels wider than the page. The numbers are the
             // display area of a 736x434 TabControl: full size minus the tab strip and the borders.
-            var pageSize = new Size(728, 406);
+            var pageSize = new Size(728, 454);
             foreach (TabPage p in _tabs.TabPages) p.Size = pageSize;
 
             // AutoScroll sizes itself from the children — but it skips anything anchored to the
@@ -205,6 +214,12 @@ namespace MetalFatiguePatcher
                 _tabs.SelectedTab == _tabExperimental ? BannerTheme.Experimental :
                 _tabs.SelectedTab == _tabMusic        ? BannerTheme.Music :
                                                         BannerTheme.Patch);
+            // While a foreign version is installed the other tabs hold nothing that can be
+            // applied, so the switch is refused rather than the control disabled.
+            _tabs.Selecting += (s, e) =>
+            {
+                if (_foreignVersion != null && e.TabPage != _tabPatch) e.Cancel = true;
+            };
             Controls.Add(_tabs);
             var tabPatch = _tabPatch;
             var tabCheats = _tabCheats;
@@ -280,37 +295,73 @@ namespace MetalFatiguePatcher
             // 2. Version
             _profGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 100),
                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            _prof2x        = new RadioButton { Location = new Point(14, 24),  AutoSize = true };
-            _prof4x        = new RadioButton { Checked = true, Location = new Point(210, 24), AutoSize = true };
-            _prof8x        = new RadioButton { Location = new Point(420, 24), AutoSize = true };
-            _profUnleashed = new RadioButton { Location = new Point(600, 24), AutoSize = true };
-            // Cheats moved to their own tab in 2.0; these two fields are kept only so the old
-            // easter-egg / detection code still compiles. They are never shown or selectable.
-            _profCheats    = new RadioButton { Visible = false };
-            _profCheatsAll = new RadioButton { Visible = false };
-            _profDesc = new Label { Location = new Point(14, 54), Size = new Size(680, 40), ForeColor = Color.DimGray,
+            // A slider, not radio buttons: nine steps do not fit a row, and the value is a number
+            // on a scale - exactly what a slider says better than a list. Discrete notches, one per
+            // entry in PatchData.UnitFactors, so two players can still compare their setting in one
+            // word instead of arguing about megabytes.
+            _unitBar = new TrackBar
+            {
+                AutoSize = false,
+                Location = new Point(14, 20), Size = new Size(560, 34),
+                Minimum = 0, Maximum = PatchData.UnitFactors.Length - 1,
+                TickFrequency = 1, SmallChange = 1, LargeChange = 1,
+                Value = System.Array.IndexOf(PatchData.UnitFactors, 4.0),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _unitValue = new Label
+            {
+                Location = new Point(586, 24), Size = new Size(110, 26),
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold),
+                ForeColor = Color.FromArgb(0, 84, 168),
+                Anchor = AnchorStyles.Top | AnchorStyles.Right
+            };
+            // Kept only so the old easter-egg / detection code still compiles; never shown.
+            _prof2x = new RadioButton { Visible = false };
+            _prof4x = new RadioButton { Visible = false, Checked = true };
+            _prof8x = new RadioButton { Visible = false };
+            _profUnleashed = new RadioButton { Visible = false };
+            _profDesc = new Label { Location = new Point(14, 58), Size = new Size(680, 36), ForeColor = Color.DimGray,
                                     Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            foreach (var rb in new[] { _prof2x, _prof4x, _prof8x, _profUnleashed })
-                rb.CheckedChanged += (s, e) => UpdateProfDesc();
-            _profGroup.Controls.AddRange(new Control[] { _prof2x, _prof4x, _prof8x, _profUnleashed, _profDesc });
+            _unitBar.ValueChanged += (s, e) => UpdateProfDesc();
+            _profGroup.Controls.AddRange(new Control[] { _unitBar, _unitValue, _profDesc });
             tabPatch.Controls.Add(_profGroup);
             y += 110;
 
-            // 3. Shared vision — optional add-on, framed like the sections above.
-            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 74),
+            // 3. Two independent switches in one frame. They have nothing to do with each other
+            // mechanically - one lifts a name limit, the other shares fog of war - but both are
+            // optional add-ons on top of the unit budget, and two frames for two checkboxes pushed
+            // the tab past the height of its page.
+            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 128),
                                       Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            _sharedVision = new CheckBox { Location = new Point(14, 24), AutoSize = true };
+
+            _crewLimitOff = new CheckBox { Location = new Point(14, 22), AutoSize = true };
+            _crewLimitOff.CheckedChanged += (s, e) => UpdateCrewLimitState();
+            _crewLimitNote = new Label
+            {
+                Location = new Point(30, 44), Size = new Size(664, 16), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+
+            _sharedVision = new CheckBox { Location = new Point(14, 70), AutoSize = true };
             _tips.SetToolTip(_sharedVision, "");
-            _svStatus = new Label { Location = new Point(300, 26), AutoSize = true, Visible = false };
+            _svStatus = new Label { Location = new Point(300, 72), AutoSize = true, Visible = false };
+            _svNote = new Label
+            {
+                Location = new Point(30, 92), Size = new Size(664, 16), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            // Only ever shown when the fog cheat makes this pointless, so it sits under the note.
             _svFogNote = new Label
             {
-                Text = "Disabled — \"No fog of war\" (Cheats tab) already reveals the whole map.",
-                Location = new Point(14, 48), Size = new Size(680, 16), ForeColor = Color.DimGray,
+                Location = new Point(30, 108), Size = new Size(664, 16), ForeColor = Color.FromArgb(176, 108, 12),
                 Font = new Font("Segoe UI", 8f), Visible = false,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _sharedVision.CheckedChanged += (s, e) => UpdateSharedVisionState();
-            _svGroup.Controls.AddRange(new Control[] { _sharedVision, _svStatus, _svFogNote });
+            _svGroup.Controls.AddRange(new Control[] {
+                _crewLimitOff, _crewLimitNote, _sharedVision, _svStatus, _svNote, _svFogNote });
             tabPatch.Controls.Add(_svGroup);
 
             BuildCheatTab(tabCheats);
@@ -330,6 +381,14 @@ namespace MetalFatiguePatcher
             _patchBtn.Click += (s, e) => DoPatch();
             // Colour follows the enabled state, so hook it here rather than at every Enabled = ...
             _patchBtn.EnabledChanged += (s, e) => StylePatchButton();
+            _patchBtn.Paint += (s, e) =>
+            {
+                if (_patchBtn.Enabled) return;   // enabled state draws itself correctly
+                e.Graphics.FillRectangle(new SolidBrush(_patchBtn.BackColor), _patchBtn.ClientRectangle);
+                TextRenderer.DrawText(e.Graphics, _patchBtn.Text, _patchBtn.Font,
+                    _patchBtn.ClientRectangle, Color.FromArgb(128, 128, 128),
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
+            };
             StylePatchButton();
             _restoreBtn = new Button
             {
@@ -410,9 +469,8 @@ namespace MetalFatiguePatcher
             _cheatFog   = new CheckBox { Location = new Point(300, 48), AutoSize = true };
             _fogSvNote = new Label
             {
-                Location = new Point(470, 50), Size = new Size(232, 14), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f), Visible = false,
-                Anchor = AnchorStyles.Top | AnchorStyles.Right
+                Location = new Point(470, 50), AutoSize = true, ForeColor = Color.FromArgb(176, 108, 12),
+                Font = new Font("Segoe UI", 8f), Visible = false
             };
             _scopeNote = new Label
             {
@@ -427,6 +485,7 @@ namespace MetalFatiguePatcher
             _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 48), ForeColor = orange,
                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
+            _cheatCrews.CheckedChanged += (s, e) => UpdateCrewLimitState();
             // The crews cheat includes the crew-name fix, so it also lifts the ~50 combot limit even
             // on a non-Maximum version. Say so, since that overlaps with what the Version tab does.
             _crewsNote = new Label
@@ -1569,6 +1628,10 @@ namespace MetalFatiguePatcher
             };
             _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub, ver });
             ver.Location = new Point(_banner.Width - ver.Width - 8, _banner.Height - ver.Height - 4);
+            // Anchored only after it is parented and placed, so the 8/4 margins it just got are the
+            // ones that get preserved. Without this the tag keeps the position it was given once and
+            // strands itself mid-banner as soon as the window is widened.
+            ver.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             ver.BringToFront();
             Controls.Add(_banner);
         }
@@ -1639,6 +1702,7 @@ namespace MetalFatiguePatcher
                 _patchBtn.FlatAppearance.BorderColor = Color.FromArgb(188, 188, 188);
                 _patchBtn.Cursor = Cursors.Default;
             }
+            _patchBtn.Invalidate();
         }
 
         /// <summary>
@@ -1682,13 +1746,11 @@ namespace MetalFatiguePatcher
             _exeLabel.Text       = Lang.T("lbl.exe");
             _browseBtn.Text      = Lang.T("btn.browse");
             _profGroup.Text      = Lang.T("grp.version");
-            _svGroup.Text        = Lang.T("grp.sharedvision");
-            _prof2x.Text         = Lang.ProfileTitle("balanced2x");
-            _prof4x.Text         = Lang.ProfileTitle("balanced4x");
-            _prof8x.Text         = Lang.ProfileTitle("balanced8x");
+            _crewLimitOff.Text   = Lang.T("crewlimit.label");
+            _crewLimitNote.Text  = Lang.T("crewlimit.note");
+            _svGroup.Text        = Lang.T("grp.options");
+            _svNote.Text         = Lang.T("sv.note");
             _profUnleashed.Text  = Lang.ProfileTitle("unleashed");
-            _profCheats.Text     = Lang.ProfileTitle("cheats");
-            _profCheatsAll.Text  = Lang.ProfileTitle("cheats_all");
             _patchBtn.Text       = Lang.T("btn.patch");
             _restoreBtn.Text     = Lang.T("btn.restore");
             _exitBtn.Text        = Lang.T("btn.exit");
@@ -1741,6 +1803,11 @@ namespace MetalFatiguePatcher
                 _scopeAll.Text        = Lang.T("scope.all");
                 _scopeNote.Text       = Lang.T("scope.note");
                 _cheatFog.Text        = Lang.T("cheat.fog");
+                // After the caption, never before: the box auto-sizes to its text, so placing
+                // the note from a Right that has not been recomputed yet parks it underneath
+                // the checkbox, which then paints over its first few words.
+                _fogSvNote.Left = _cheatFog.Right + 12;
+                _fogSvNote.Top  = _cheatFog.Top + 2;
                 _cheatBuild.Text      = Lang.T("cheat.build");
                 _cheatTurbo.Text      = Lang.T("cheat.turbo");
                 _cheatCrews.Text      = Lang.T("cheat.crews");
@@ -1854,6 +1921,8 @@ namespace MetalFatiguePatcher
             // Only offer Restore when the backup actually verifies as a clean original.
             _restoreBtn.Enabled = Patcher.HasValidBackup(path);
 
+            ApplyForeignVersionLock(path, c, profKey);
+
             // Push the state a crash report would need. Pushed, never pulled: the reporter runs when
             // this thread may already be dead, and must not touch a control to find any of this out.
             // Wrapped because gathering diagnostics must never be the thing that takes the app down —
@@ -1906,7 +1975,13 @@ namespace MetalFatiguePatcher
             else
             {
                 var cats = new System.Collections.Generic.List<string>();
-                if (profKey != null) cats.Add(Lang.T("info.cat.patch") + " (" + Lang.ProfileTitle(profKey) + ")");
+                if (profKey != null)
+                {
+                    // The profile's own title, not Lang.ProfileTitle: since 1.4.0 the steps are
+                    // generated and only Maximum still has a translated name.
+                    var p = PatchData.ByKey(profKey);
+                    cats.Add(Lang.T("info.cat.patch") + " (" + (p != null ? p.Title : profKey) + ")");
+                }
                 else if (svInstalled) cats.Add(Lang.T("info.cat.patch"));
                 var inst = _lastInstalled;
                 if (inst != null)
@@ -1934,6 +2009,51 @@ namespace MetalFatiguePatcher
             else _reportKind = null;
             _reportLink.Visible = _reportKind != null;
             _reportLink.Text = Lang.T("info.report");
+            ReflowReadout();
+        }
+
+        /// <summary>
+        /// A file patched by a DIFFERENT Retrofit version is not something to build on top of.
+        /// Every release rebuilds from the backup, so the safe move is always: restore first, then
+        /// patch again with this version. Until that happens the interface is locked down to the one
+        /// action that helps.
+        ///
+        /// Two cases, and they differ in how much is left usable:
+        ///   backup intact -> everything off except Restore original.
+        ///   backup gone   -> everything off, including Restore and the tabs, because nothing here
+        ///                    can repair the file; only Steam's file verification or a reinstall can.
+        ///
+        /// The language flags live in the banner and stay reachable either way - being unable to
+        /// read the message explaining the lock would be a poor way to enforce it.
+        /// </summary>
+        void ApplyForeignVersionLock(string path, Patcher.Compat c, string profKey)
+        {
+            _foreignVersion = null;
+            bool ours = c == Patcher.Compat.PatchedByUs || profKey != null;
+            if (ours)
+            {
+                var stamp = Patcher.StampOf(path);
+                if (stamp != PatchData.OwnVersion())
+                    _foreignVersion = stamp != null ? "Retrofit " + stamp : Lang.T("compat.preStamp");
+            }
+
+            if (_foreignVersion == null) return;
+
+            bool canRestore = Patcher.HasValidBackup(path);
+            // Settings off and the other tabs unreachable - but NOT by disabling the TabControl.
+            // The file chooser and this very message live on the Patch page, so switching the whole
+            // control off greys out the explanation and the path box along with it. The tab switch
+            // is refused in _tabs.Selecting instead; everything here stays readable and the player
+            // can still point at a different installation.
+            _profGroup.Enabled = false;
+            _svGroup.Enabled = false;
+            _patchBtn.Enabled = false;
+            _restoreBtn.Enabled = canRestore;
+
+            _compatLabel.Text = canRestore
+                ? string.Format(Lang.T("compat.foreign"), _foreignVersion, Lang.T("btn.restore"))
+                : string.Format(Lang.T("compat.foreignNoBackup"), _foreignVersion);
+            _compatLabel.ForeColor = Color.FromArgb(192, 32, 32);
             ReflowReadout();
         }
 
@@ -2020,16 +2140,9 @@ namespace MetalFatiguePatcher
 
         // ---------- logic ----------
 
-        Profile Selected
-        {
-            get
-            {
-                if (_prof2x.Checked)        return PatchData.ByKey("balanced2x");
-                if (_prof8x.Checked)        return PatchData.ByKey("balanced8x");
-                if (_profUnleashed.Checked) return PatchData.ByKey("unleashed");
-                return PatchData.ByKey("balanced4x");
-            }
-        }
+        /// <summary>The version the slider is on.</summary>
+        Profile Selected => PatchData.Profiles[
+            Math.Min(Math.Max(_unitBar.Value, 0), PatchData.Profiles.Count - 1)];
 
         /// <summary>The extra sites for the currently ticked cheats and part/superweapon unlocks.</summary>
         System.Collections.Generic.List<PatchSite> ComposeExtras()
@@ -2049,6 +2162,9 @@ namespace MetalFatiguePatcher
             // backup, so leaving it out would silently drop the table edit while the files stayed on
             // disk — and Rimtech would then play Neuropa's tracks. Keyed on the files being present,
             // never on a checkbox: the table is only ever valid together with them.
+            if (_crewLimitOff.Checked)
+                extras.AddRange(PatchData.CrewLimitOffSites());
+
             if (MusicImport.FilesPresent(_pathBox.Text.Trim()))
                 extras.AddRange(PatchData.RimtechMusicSites());
 
@@ -2057,8 +2173,11 @@ namespace MetalFatiguePatcher
 
         void UpdateProfDesc()
         {
-            _profDesc.Text = Selected.Description;
+            var p = Selected;
+            _unitValue.Text = p.Title;
+            _profDesc.Text = p.Description;
             UpdateSharedVisionState();
+            UpdateCrewLimitState();
         }
 
         /// <summary>
@@ -2066,6 +2185,53 @@ namespace MetalFatiguePatcher
         /// meaningless — so the two are mutually exclusive. Whichever is ticked disables the
         /// other and shows a short note saying why. Runs across both tabs.
         /// </summary>
+        /// <summary>
+        /// The cheat's deterministic naming cave replaces the whole allocator search, so the Patch
+        /// tab's two-byte flip would sit in code that never runs again - written, detected as active,
+        /// and doing nothing. They are therefore exclusive, the same way fog of war and shared vision
+        /// are: whichever is ticked greys out the other and says why in its own description line.
+        /// </summary>
+        void UpdateCrewLimitState()
+        {
+            if (_crewLimitOff == null || _cheatCrews == null || _crewsNote == null) return;
+            if (_crewSyncing) return;
+            _crewSyncing = true;
+            try
+            {
+                var amber = Color.FromArgb(176, 108, 12);
+                bool cheat = _cheatCrews.Checked;
+                bool own = _crewLimitOff.Checked;
+
+                if (cheat)
+                {
+                    if (own) _crewLimitOff.Checked = false;
+                    _crewLimitOff.Enabled = false;
+                    _crewLimitNote.Text = Lang.T("crewlimit.inCheat");
+                    _crewLimitNote.ForeColor = amber;
+                }
+                else
+                {
+                    _crewLimitOff.Enabled = _svGroup.Enabled;
+                    _crewLimitNote.Text = Lang.T("crewlimit.note");
+                    _crewLimitNote.ForeColor = Color.DimGray;
+                }
+
+                if (own && !cheat)
+                {
+                    _cheatCrews.Enabled = false;
+                    _crewsNote.Text = Lang.T("cheat.crews.inPatch");
+                    _crewsNote.ForeColor = amber;
+                }
+                else
+                {
+                    _cheatCrews.Enabled = true;
+                    _crewsNote.Text = Lang.T("cheat.crews.note");
+                    _crewsNote.ForeColor = Color.DimGray;
+                }
+            }
+            finally { _crewSyncing = false; }
+        }
+
         void UpdateSharedVisionState()
         {
             if (_sharedVision == null || _cheatFog == null) return;
@@ -2112,13 +2278,8 @@ namespace MetalFatiguePatcher
         void RestoreFromExe(string path, string versionKey, Patcher.Compat c)
         {
             // Version radio from detection; default 4x when none is detected.
-            switch (versionKey)
-            {
-                case "balanced2x": _prof2x.Checked = true; break;
-                case "balanced8x": _prof8x.Checked = true; break;
-                case "unleashed":  _profUnleashed.Checked = true; break;
-                default:           _prof4x.Checked = true; break;
-            }
+            int step = PatchData.Profiles.FindIndex(p => p.Key == versionKey);
+            _unitBar.Value = step >= 0 ? step : System.Array.IndexOf(PatchData.UnitFactors, 4.0);
 
             PatchData.Installed inst = null;
             if (c == Patcher.Compat.PatchedByUs || c == Patcher.Compat.Unsupported)
@@ -2130,6 +2291,7 @@ namespace MetalFatiguePatcher
             _cheatBuild.Checked      = inst.FreeBuild;
             _cheatTurbo.Checked      = inst.Turbo;
             _cheatCrews.Checked      = inst.Crews;
+            _crewLimitOff.Checked    = inst.CrewLimitOff;
             _scopeAll.Checked        = inst.CheatScopeAll;
             _scopePlayer.Checked     = !inst.CheatScopeAll;
             _partsScopeAll.Checked   = inst.PartsScopeAll;

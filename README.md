@@ -5,7 +5,7 @@
 A distributable patcher that fixes two long-standing bugs in **Metal Fatigue** (Zono/Psygnosis, 2000; rights now at Nightdive/Atari):
 
 1. **Global memory-based unit limit** — the game caps in-use game-object allocations at a hard-coded **8 MB** inside a fixed **10 MB** pool, blocking unit production long before any real memory pressure. Independent of how much RAM you have. This was a huge problem in Matches with 6+ players seeing as unit production got blocked quite early due to the unit limit being global.
-2. **Crew-name limit (~50 per faction)** — combots draw pilot/crew names from a fixed 50-name pool per faction; once exhausted, combot production is refused ("Couldn't find a name for this crew!").
+2. **Crew-name limit (~50 per faction)** — combots draw pilot/crew names from a fixed 50-name pool per faction. The names come back when a crew dies, so this is a cap on how many combots you can field **at once**; reach it and production is refused with a leftover developer line ("Couldn't find a name for this crew!").
 
 ## Download
 
@@ -33,28 +33,42 @@ The patcher operates on **your own legally-owned copy** of `MFatigue.exe`. It ne
 
 ## Versions
 
-| Version | Unit budget | Combots |
-|---------|-------------|---------|
-| **50 combots · 2× units** | 16 MB soft cap (arena 20 MB) | native ~50 |
-| **50 combots · 4× units** ★ | 32 MB soft cap (arena 40 MB) | native ~50 |
-| **50 combots · 8× units** | 64 MB soft cap (arena 80 MB) | native ~50 |
-| **Maximum** | 120 MB soft cap (arena 128 MB) | unlimited (cyclic name reuse) |
+Since 1.4.0 the unit budget is a **slider** with nine steps rather than four fixed versions:
 
-★ recommended for 6+ players. The ~50 combot cap is not a design choice — it comes from the
-game's crew-name list, which holds exactly 50 names per faction. Only *Maximum* lifts it.
+| Step | Unit budget |
+|------|-------------|
+| **1.5×** | 12 MB soft cap (arena 15 MB) |
+| **2×** | 16 MB soft cap (arena 20 MB) |
+| **2.5×** | 20 MB soft cap (arena 25 MB) |
+| **3×** | 24 MB soft cap (arena 30 MB) |
+| **3.5×** | 28 MB soft cap (arena 35 MB) |
+| **4×** ★ | 32 MB soft cap (arena 40 MB) |
+| **6×** | 48 MB soft cap (arena 60 MB) |
+| **8×** | 64 MB soft cap (arena 80 MB) |
+| **Maximum** | 120 MB soft cap (arena 128 MB) |
+
+★ recommended for 6+ players. Vanilla is 8 MB inside a 10 MB arena, so every step keeps that
+80 % ratio; only *Maximum* pushes it higher.
+
+**The crew-name limit is a separate switch.** Up to 1.3.x it was welded to *Maximum*, where
+choosing the biggest unit budget silently also changed how crews are named. The two limits come
+from unrelated places in the executable, and the interface now says so: tick **Lift the ~50
+crew-name limit** to let each tier reuse its own names, which is what allows more than 50 crews
+alive at once — at the price of names repeating. *Patched with Maximum before 1.4.0? Tick that
+box to keep what you had.*
 
 The memory soft cap is kept as a safety valve (blocks gracefully near real exhaustion instead
 of crashing) — just moved far above the artificial 8 MB wall.
 
 **Optional add-on:** *share vision with allies* — allied units also lift your fog of war.
-Combinable with any of the versions above.
+Combinable with any step of the slider.
 
 ## Cheats (optional)
 
-A separate **Cheats** tab, layered on top of whichever version you pick — nothing here is needed
+A separate **Cheats** tab, layered on top of whatever you set above — nothing here is needed
 for the bug fixes, it's just for fun and experimenting. Everything is individually toggleable:
 
-- **No fog of war**, **Free building**, **Instant build**, **Unlimited elite crews**.
+- **No fog of war**, **Free building**, **Instant build**, **Unlimited high-tier crews** (includes the crew-name limit, so the switch above is not needed alongside it).
 - A **Me only / All players (incl. AI)** switch for Free building and Instant build — hand the
   AI the same advantages, or keep them for yourself.
 - **Unlock combot parts of other factions** — a checkable tree of every faction's arms, legs and
@@ -138,7 +152,7 @@ overwrite, and re-reads the result afterwards to confirm.
 
 ## Layout
 
-- `patcher/` — the GUI patcher (detect · choose version · backup · patch · verify · restore)
+- `patcher/` — the GUI patcher (detect · choose settings · backup · patch · verify · restore)
 - `installer/` — Inno Setup script for the optional `Setup.exe`
 - `scripts/` — build and release helpers
 
@@ -161,8 +175,8 @@ The **GOG and Steam `MFatigue.exe` are byte-identical** (SHA256 `26d428f1…`, t
 - **The patcher stops recognising a Steam or GOG copy.** Usually means the game got an update and the executable changed — that affects everyone, so it's the most useful thing you can report.
 - **The game won't start, or crashes after patching**, and doesn't on the unpatched original.
 - **"Restore original" doesn't bring the game back.** Anything touching the backup matters most of all.
-- **A limit hits far earlier than your chosen version promises** — production stalling like vanilla although you picked *8× units*, for example.
-- **Combot production stops on *Maximum***, where crew names are supposed to be reused indefinitely.
+- **A limit hits far earlier than the slider promises** — production stalling like vanilla although you set *8×*, for example.
+- **Combot production stops although *Lift the ~50 crew-name limit* is ticked**, where names are supposed to be reused indefinitely.
 - **Multiplayer desyncs although every player ran the identical build.** This is the least-tested area of the patch.
 - **"Share vision with allies" is enabled but nothing changes** in a match with an ally.
 - **Wrong, garbled or missing text** in any of the 10 languages, or text clipped inside the window.
@@ -174,7 +188,7 @@ All of these are expected — please check the list before opening an issue:
 
 - **Windows warns about an "unknown publisher", or antivirus flags the patcher.** It isn't code-signed, and it writes into another program's file, which trips heuristics. [How to verify it instead](#is-this-safe).
 - **Steam's "Verify integrity of game files" undoes the patch.** Steam sees a modified EXE and re-downloads the original. Just run the patcher again.
-- **You still can't build more than ~50 combots.** On the *50 combots · 2× / 4× / 8× units* versions that cap is kept **on purpose** — it comes from the crew-name list. Only *Maximum* lifts it.
+- **You still can't build more than ~50 combots at a time.** The unit slider does not touch that cap **on purpose** — it comes from the crew-name list, which is its own switch. Tick *Lift the ~50 crew-name limit* if you want past it. Note the cap is on combots *alive*: losing one frees its name immediately.
 - **Unit production still stops eventually.** The memory cap isn't removed, only moved far above the artificial 8 MB wall. It stays as a safety valve, so the game blocks gracefully instead of crashing.
 - **The framerate drops in huge battles.** That's the engine, not the patch. A 2000-era RTS was never built for these unit counts and can't spread the work across modern multi-core CPUs, so faster hardware helps far less than you would expect. The patch lifted an artificial cap — it can't make an old engine scale.
 - **The patcher refuses your `MFatigue.exe`.** Deliberate — it only touches builds it can positively identify. Report that as an *unsupported version* instead.

@@ -80,6 +80,13 @@ namespace MetalFatiguePatcher
 
         readonly string _gameDir;
         IntPtr _vf;                             // OggVorbis_File is opaque; 8 KB is comfortably large
+
+        // Every call that touches _vf goes through this. libvorbis keeps decoder state inside the
+        // OggVorbis_File struct and is not reentrant: the pump thread sitting in ov_read while the
+        // UI thread calls ov_time_seek on the same struct corrupts it, and the process dies inside
+        // libvorbis.dll with an access violation - not a managed exception, so nothing catches it
+        // and no error report is written. Observed 2026-07-27 by dragging the seek bar.
+        readonly object _vfLock = new object();
         const int VfBytes = 8192;
         IntPtr _wave;
         IntPtr[] _hdrs = new IntPtr[BufferCount];
@@ -151,23 +158,31 @@ namespace MetalFatiguePatcher
             Stop();
             EnsureLoaded();
 
-            if (_vf == IntPtr.Zero) _vf = Marshal.AllocHGlobal(VfBytes);
-            for (int b = 0; b < VfBytes; b++) Marshal.WriteByte(_vf, b, 0);
+            // Under the same lock as the pump's ov_read. Stop() above joins the old thread with a
+            // timeout, so it can still be inside libvorbis when this runs - and this is where the
+            // second track differs from the first: it zeroes the 8 KB OggVorbis_File and reopens it
+            // underneath a decoder that is mid-packet. Nothing crashes on the first clip because
+            // there is no previous decoder to pull the ground out from under.
+            lock (_vfLock)
+            {
+                if (_vf == IntPtr.Zero) _vf = Marshal.AllocHGlobal(VfBytes);
+                for (int b = 0; b < VfBytes; b++) Marshal.WriteByte(_vf, b, 0);
 
-            if (ov_fopen(oggPath, _vf) != 0) throw new InvalidOperationException("ov_fopen");
+                if (ov_fopen(oggPath, _vf) != 0) throw new InvalidOperationException("ov_fopen");
 
-            var info = ov_info(_vf, -1);
-            if (info == IntPtr.Zero) { ov_clear(_vf); throw new InvalidOperationException("ov_info"); }
-            _channels = Marshal.ReadInt32(info, 4);
-            _rate = Marshal.ReadInt32(info, 8);
-            Length = ov_time_total(_vf, -1);
-            _seekBase = 0;
+                var info = ov_info(_vf, -1);
+                if (info == IntPtr.Zero) { ov_clear(_vf); throw new InvalidOperationException("ov_info"); }
+                _channels = Marshal.ReadInt32(info, 4);
+                _rate = Marshal.ReadInt32(info, 8);
+                Length = ov_time_total(_vf, -1);
+                _seekBase = 0;
 
-            if (_rate <= 0 || _channels <= 0) { ov_clear(_vf); throw new InvalidOperationException("format"); }
+                if (_rate <= 0 || _channels <= 0) { ov_clear(_vf); throw new InvalidOperationException("format"); }
+            }
 
             var fmt = WaveFormat(_channels, _rate);
             if (waveOutOpen(out _wave, -1, fmt, IntPtr.Zero, IntPtr.Zero, 0) != 0)
-            { ov_clear(_vf); _wave = IntPtr.Zero; throw new InvalidOperationException("waveOutOpen"); }
+            { lock (_vfLock) { ov_clear(_vf); } _wave = IntPtr.Zero; throw new InvalidOperationException("waveOutOpen"); }
             ApplyVolume();   // a fresh device starts at whatever the driver felt like
 
             for (int i = 0; i < BufferCount; i++)
@@ -202,12 +217,18 @@ namespace MetalFatiguePatcher
 
                         // ov_read hands back one packet at a time, so fill the buffer in a loop.
                         int got = 0, bs;
-                        while (got < BufferBytes)
+                        // One buffer's worth per lock: long enough to keep the decoder efficient,
+                        // short enough that a seek never waits noticeably.
+                        lock (_vfLock)
                         {
-                            int n = ov_read(_vf, pcm, BufferBytes - got, 0, 2, 1, out bs);
-                            if (n <= 0) break;                       // 0 = end of stream
-                            Marshal.Copy(pcm, 0, IntPtr.Add(_data[i], got), n);
-                            got += n;
+                            while (got < BufferBytes)
+                            {
+                                if (_vf == IntPtr.Zero) break;       // stopped while we waited
+                                int n = ov_read(_vf, pcm, BufferBytes - got, 0, 2, 1, out bs);
+                                if (n <= 0) break;                   // 0 = end of stream
+                                Marshal.Copy(pcm, 0, IntPtr.Add(_data[i], got), n);
+                                got += n;
+                            }
                         }
                         if (got == 0) { _run = false; break; }       // played to the end
 
@@ -232,7 +253,11 @@ namespace MetalFatiguePatcher
                 // waveOutReset returns every queued buffer, which clears WHDR_INQUEUE on all of them —
                 // so the pump sees them as free again without the flags being touched.
                 waveOutReset(_wave);
-                ov_time_seek(_vf, Math.Max(0, Math.Min(Length, seconds)));
+                lock (_vfLock)
+                {
+                    if (_vf == IntPtr.Zero) return;
+                    ov_time_seek(_vf, Math.Max(0, Math.Min(Length, seconds)));
+                }
                 _seekBase = seconds;
                 _bytesAtSeek = BytesPlayed();
             }
@@ -259,7 +284,7 @@ namespace MetalFatiguePatcher
                 }
                 try { waveOutClose(_wave); } catch { }
                 _wave = IntPtr.Zero;
-                if (_vf != IntPtr.Zero) { try { ov_clear(_vf); } catch { } }
+                lock (_vfLock) { if (_vf != IntPtr.Zero) { try { ov_clear(_vf); } catch { } } }
             }
             Length = 0; _seekBase = 0; _bytesAtSeek = 0;
         }
