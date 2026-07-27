@@ -153,10 +153,12 @@ namespace MetalFatiguePatcher
 
         public MainForm()
         {
-            // 830, not 782: the options frame gained a second checkbox in 1.4.0 and the Patch
-            // tab is the tallest of the four. Shrinking a frame to fit would make it jump around
-            // whenever the status line changes height, which is worse than 48 more pixels.
-            ClientSize = new Size(760, 830);
+            // 844, not 782: the options frame gained a second checkbox in 1.4.0 and its crew-name
+            // note a second line in 1.4.1, and the Patch tab is the tallest of the four. Shrinking a
+            // frame to fit would make it jump around whenever the status line changes height, which
+            // is worse than 62 more pixels - and since 1.3.1 a window too tall for the screen can be
+            // dragged smaller, with the tabs scrolling.
+            ClientSize = new Size(760, 844);
             StartPosition = FormStartPosition.CenterScreen;
 
             // Resizable since 1.3.1. The window used to be fixed at 776x821 including its frame,
@@ -180,7 +182,7 @@ namespace MetalFatiguePatcher
             // Tabs: "Patch" (the bug-fix, unchanged) and "Cheats" (2.0 — individually selectable).
             _tabs = new TabControl
             {
-                Location = new Point(12, 126), Size = new Size(736, 482),
+                Location = new Point(12, 126), Size = new Size(736, 496),
                 Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right
             };
             // Each page scrolls on its own rather than the whole form. Shrinking the window shrinks
@@ -199,8 +201,8 @@ namespace MetalFatiguePatcher
             // sizes its pages when it creates its handle, so until then a page is a 200x100 stub —
             // and a child anchored to the right would cache its distance to that stub's edge and
             // keep it forever, ending up hundreds of pixels wider than the page. The numbers are the
-            // display area of a 736x434 TabControl: full size minus the tab strip and the borders.
-            var pageSize = new Size(728, 454);
+            // display area of a 736x496 TabControl: full size minus the tab strip and the borders.
+            var pageSize = new Size(728, 468);
             foreach (TabPage p in _tabs.TabPages) p.Size = pageSize;
 
             // AutoScroll sizes itself from the children — but it skips anything anchored to the
@@ -331,31 +333,34 @@ namespace MetalFatiguePatcher
             // mechanically - one lifts a name limit, the other shares fog of war - but both are
             // optional add-ons on top of the unit budget, and two frames for two checkboxes pushed
             // the tab past the height of its page.
-            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 128),
+            _svGroup = new GroupBox { Location = new Point(12, y), Size = new Size(708, 142),
                                       Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
 
             _crewLimitOff = new CheckBox { Location = new Point(14, 22), AutoSize = true };
             _crewLimitOff.CheckedChanged += (s, e) => UpdateCrewLimitState();
+            // Two lines, unlike every other note in this frame: what the 50 names actually do needs a
+            // sentence, and at 664px the single line clipped in seven of the ten languages - Russian
+            // by a third of its text. Everything below shifted down to pay for it.
             _crewLimitNote = new Label
             {
-                Location = new Point(30, 44), Size = new Size(664, 16), ForeColor = Color.DimGray,
+                Location = new Point(30, 44), Size = new Size(664, 30), ForeColor = Color.DimGray,
                 Font = new Font("Segoe UI", 8f),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
-            _sharedVision = new CheckBox { Location = new Point(14, 70), AutoSize = true };
+            _sharedVision = new CheckBox { Location = new Point(14, 78), AutoSize = true };
             _tips.SetToolTip(_sharedVision, "");
-            _svStatus = new Label { Location = new Point(300, 72), AutoSize = true, Visible = false };
+            _svStatus = new Label { Location = new Point(300, 80), AutoSize = true, Visible = false };
             _svNote = new Label
             {
-                Location = new Point(30, 92), Size = new Size(664, 16), ForeColor = Color.DimGray,
+                Location = new Point(30, 100), Size = new Size(664, 16), ForeColor = Color.DimGray,
                 Font = new Font("Segoe UI", 8f),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             // Only ever shown when the fog cheat makes this pointless, so it sits under the note.
             _svFogNote = new Label
             {
-                Location = new Point(30, 108), Size = new Size(664, 16), ForeColor = Color.FromArgb(176, 108, 12),
+                Location = new Point(30, 116), Size = new Size(664, 16), ForeColor = Color.FromArgb(176, 108, 12),
                 Font = new Font("Segoe UI", 8f), Visible = false,
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
@@ -482,15 +487,17 @@ namespace MetalFatiguePatcher
             tab.Controls.Add(_cheatGroup);
 
             // Always-global cheats — no scope, so they live in their own little section.
-            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 48), ForeColor = orange,
+            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 62), ForeColor = orange,
                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
             _cheatCrews.CheckedChanged += (s, e) => UpdateCrewLimitState();
             // The crews cheat includes the crew-name fix, so it also lifts the ~50 combot limit even
             // on a non-Maximum version. Say so, since that overlaps with what the Version tab does.
+            // Two lines: only 470px are left beside the checkbox, and German, Spanish and Russian all
+            // need a second one.
             _crewsNote = new Label
             {
-                Location = new Point(230, 22), Size = new Size(470, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
+                Location = new Point(230, 22), Size = new Size(470, 30), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _globalGroup.Controls.AddRange(new Control[] { _cheatCrews, _crewsNote });
@@ -499,7 +506,7 @@ namespace MetalFatiguePatcher
             // Unlock tree: combot parts (by faction) + superweapons, each a checkable node.
             // Takes every pixel the tab has left over, in both directions: this is the one section
             // where more room means more parts on screen at once.
-            _unlockGroup = new GroupBox { Location = new Point(12, 160), Size = new Size(708, 200), ForeColor = orange,
+            _unlockGroup = new GroupBox { Location = new Point(12, 174), Size = new Size(708, 200), ForeColor = orange,
                                           Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
                                           MinimumSize = new Size(0, 200) };
             // Parts get their own scope: the AI does use foreign parts (confirmed in testing), so
@@ -607,7 +614,10 @@ namespace MetalFatiguePatcher
             _musicPickZip    = new Button { Location = new Point(172, 74), Size = new Size(150, 26) };
             // Remove sits at the far right, away from the two import buttons: it is the destructive
             // one, and the gap is what keeps it from being clicked by momentum.
-            _musicRemove     = new Button { Location = new Point(544, 74), Size = new Size(150, 26),
+            // 220 wide, not 150: the Russian caption alone is 203px and used to wrap to three lines
+            // inside a 26px button, and five other languages to two. The right edge is unchanged, so
+            // the gap to the import buttons only gets smaller, never the separation itself.
+            _musicRemove     = new Button { Location = new Point(474, 74), Size = new Size(220, 26),
                                             Anchor = AnchorStyles.Top | AnchorStyles.Right };
             _musicPickFolder.Click += (s, e) => ImportMusic(false);
             _musicPickZip.Click    += (s, e) => ImportMusic(true);
@@ -1254,9 +1264,10 @@ namespace MetalFatiguePatcher
         /// is. Everything here used to be four sets of constants spread over EnsureIcons, ShowTreeView
         /// and HideBig, which pinned the list to the size the window happened to have at build time.
         ///
-        /// The note keeps its own height and sits on the bottom edge; the tree or the icon list takes
-        /// all the room above it. The note is taller in tree mode because it then carries two full
-        /// sentences that wrap to about four lines in German and Spanish.
+        /// The note sits on the bottom edge and the tree or the icon list takes all the room above it.
+        /// Its height is measured from the text it is actually showing: the same two sentences wrap to
+        /// two lines in the CJK languages and three in most of the rest, and the flat 26px the icon
+        /// mode used to reserve cut the last line off in seven of the ten.
         /// </summary>
         void LayoutUnlockArea()
         {
@@ -1268,7 +1279,11 @@ namespace MetalFatiguePatcher
             // "tree" no matter what was just assigned, and the note would keep the tree's height.
             bool iconMode = _iconToggles != null;
 
-            int noteH = iconMode ? 26 : 62;
+            // Floor so an empty Text during construction cannot collapse the row, ceiling so a long
+            // translation cannot eat the list it is describing.
+            int noteH = TextRenderer.MeasureText(_unlockNote.Text ?? "", _unlockNote.Font,
+                                                 new Size(w, 0), TextFormatFlags.WordBreak).Height + 2;
+            noteH = Math.Max(26, Math.Min(66, noteH));
             int noteTop = Math.Max(80, _unlockGroup.ClientSize.Height - noteH - 8);
             _unlockNote.SetBounds(14, noteTop, w, noteH);
 
@@ -1834,6 +1849,11 @@ namespace MetalFatiguePatcher
 
             UpdateProfDesc();
             UpdateCompat();
+
+            // The music status line and the grid's match column are computed, not assigned above, and
+            // UpdateCompat only recomputes them when the exe path changes. Without this the tab keeps
+            // the wording of whatever language was active when the folder was picked.
+            UpdateMusicState();
         }
 
         /// <summary>
@@ -1904,7 +1924,13 @@ namespace MetalFatiguePatcher
                 _sharedVision.Checked = svInstalled;
                 RestoreFromExe(path, profKey, c);
             }
+            // Both of these hand their checkbox back the group's enabled state, so both have to run
+            // whenever that state can have changed. Only the vision one did, and the crew box stayed
+            // disabled after pointing at a locked install and then at a good one: nothing had changed
+            // its tick, so no CheckedChanged fired, and the slider landing on the same step meant
+            // UpdateProfDesc did not run either.
             UpdateSharedVisionState();
+            UpdateCrewLimitState();
 
             FillExeInfo(c, profKey, path, svInstalled);
 
@@ -2013,10 +2039,11 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>
-        /// A file patched by a DIFFERENT Retrofit version is not something to build on top of.
-        /// Every release rebuilds from the backup, so the safe move is always: restore first, then
-        /// patch again with this version. Until that happens the interface is locked down to the one
-        /// action that helps.
+        /// A file whose bytes do not mean to this build what they meant to the one that wrote them
+        /// is not something to build on top of. The test is the cave layout revision, not the release
+        /// number: 1.4.0 and 1.4.1 place identical bytes at identical offsets, so demanding a restore
+        /// between them would be noise. What does warrant it is a moved layout, and a file from before
+        /// 1.4.0, which carries no stamp at all and so cannot vouch for itself.
         ///
         /// Two cases, and they differ in how much is left usable:
         ///   backup intact -> everything off except Restore original.
@@ -2030,14 +2057,28 @@ namespace MetalFatiguePatcher
         {
             _foreignVersion = null;
             bool ours = c == Patcher.Compat.PatchedByUs || profKey != null;
+            string stamp = null;
             if (ours)
             {
-                var stamp = Patcher.StampOf(path);
-                if (stamp != PatchData.OwnVersion())
+                int? layout;
+                stamp = Patcher.StampOf(path, out layout);
+                if (stamp == null || layout != PatchData.OwnLayoutRev)
                     _foreignVersion = stamp != null ? "Retrofit " + stamp : Lang.T("compat.preStamp");
             }
 
-            if (_foreignVersion == null) return;
+            if (_foreignVersion == null)
+            {
+                // Only worth a word when another release wrote these bytes. Announcing that this
+                // version is compatible with its own work says nothing, so a matching stamp keeps the
+                // plain "already patched". A different one that cleared the layout check is the case
+                // the player would otherwise be left guessing about.
+                if (stamp != null && stamp != PatchData.OwnVersion() && c == Patcher.Compat.PatchedByUs)
+                {
+                    _compatLabel.Text = string.Format(Lang.T("compat.patchedBy"), "Retrofit " + stamp);
+                    ReflowReadout();
+                }
+                return;
+            }
 
             bool canRestore = Patcher.HasValidBackup(path);
             // Settings off and the other tabs unreachable - but NOT by disabling the TabControl.

@@ -249,10 +249,18 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>The Retrofit version that patched this file, or null if there is no stamp.
-        /// Absent means either pristine or patched before 1.4.0, which is when stamping began.</summary>
-        public static string StampOf(string exePath)
+        /// Absent means either pristine or patched before 1.4.0, which is when stamping began.
+        /// Hands back the cave layout revision from the same read, because the two are always
+        /// wanted together: the version is what gets shown, the layout is what gets compared.</summary>
+        public static string StampOf(string exePath, out int? layoutRev)
         {
-            try { return PatchData.ReadStamp(File.ReadAllBytes(exePath)); }
+            layoutRev = null;
+            try
+            {
+                var d = File.ReadAllBytes(exePath);
+                layoutRev = PatchData.ReadLayoutRev(d);
+                return PatchData.ReadStamp(d);
+            }
             catch { return null; }
         }
 

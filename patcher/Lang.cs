@@ -319,6 +319,18 @@ namespace MetalFatiguePatcher
                 "● 已打补丁 — 可更改设置或还原原版。",
                 "● Уже пропатчено — можно изменить настройки или восстановить оригинал." } },
 
+            { "compat.patchedBy", new[]{
+                "● Patched with {0} — compatible. You can change the settings or restore the original.",
+                "● Mit {0} gepatcht — kompatibel. Einstellungen änderbar, Original wiederherstellbar.",
+                "● Parcheado con {0}: compatible. Puedes cambiar los ajustes o restaurar el original.",
+                "● Aplicado com {0} — compatível. Você pode alterar as opções ou restaurar o original.",
+                "● Patchato con {0} — compatibile. Puoi cambiare le impostazioni o ripristinare l'originale.",
+                "● Patché avec {0} — compatible. Réglages modifiables, original restaurable.",
+                "● {0} でパッチ済み — 互換性あり。設定の変更・復元が可能です。",
+                "● {0}(으)로 패치됨 — 호환됩니다. 설정을 변경하거나 원본으로 복원할 수 있습니다.",
+                "● 已由 {0} 打补丁 — 兼容。可更改设置或还原原版。",
+                "● Пропатчено {0} — совместимо. Можно изменить настройки или восстановить оригинал." } },
+
             { "compat.patchedUnknown", new[]{
                 "● Already patched — you can switch version or restore the original.",
                 "● Bereits gepatcht — Version wechselbar, Original wiederherstellbar.",

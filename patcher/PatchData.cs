@@ -743,23 +743,31 @@ namespace MetalFatiguePatcher
         }
 
         // --- Version stamp -------------------------------------------------------------------------
-        // Eight bytes at the very end of the cave zone: "MFRT" plus major/minor/patch and one spare.
-        // Written by every patch since 1.4.0, so any later release can tell at a glance whether a
-        // file was touched by a different version of this tool and refuse to build on top of it.
+        // Eight bytes at the very end of the cave zone: "MFRT" plus major/minor/patch and the cave
+        // layout revision. Written by every patch since 1.4.0, so any later release can tell at a
+        // glance who wrote these bytes and whether they still mean what it expects.
         //
         // Before 1.4.0 nothing was stamped, and 1.2 and 1.3 are genuinely indistinguishable - their
         // patch sites are byte-identical, the only later addition being the music table, which is
         // only present when the player imported music. Such a file reads as "ours, but unstamped",
-        // which calls for the same action anyway: restore the original first.
+        // and there is nothing to do but restore the original first.
         const long STAMP_SITE = 0xd1ff8;   // last 8 bytes before CAVE_ZONE_END
         static readonly byte[] StampMagic = { 0x4D, 0x46, 0x52, 0x54 };   // "MFRT"
+
+        // The last byte is what the lock actually turns on: not the release number, but whether the
+        // cave layout still matches. Two releases that place the same bytes at the same offsets can
+        // read each other's work, and sending everybody through Restore original for a bugfix that
+        // moved nothing would be pure noise. 1.4.0 wrote a zero here and its layout is still the
+        // current one. Bump this when a cave offset, a hook target or the meaning of a patched byte
+        // moves - never just because a version shipped.
+        const byte LAYOUT_REV = 0;
 
         public static List<PatchSite> VersionStampSites()
         {
             var v = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
             var b = new byte[8];
             System.Array.Copy(StampMagic, b, 4);
-            b[4] = (byte)v.Major; b[5] = (byte)v.Minor; b[6] = (byte)v.Build; b[7] = 0;
+            b[4] = (byte)v.Major; b[5] = (byte)v.Minor; b[6] = (byte)v.Build; b[7] = LAYOUT_REV;
             return new List<PatchSite>
             {
                 new PatchSite { Name = "version_stamp", Offset = STAMP_SITE, Original = H(Zeros(8)), Patched = b },
@@ -775,6 +783,19 @@ namespace MetalFatiguePatcher
                 if (d[STAMP_SITE + i] != StampMagic[i]) return null;
             return string.Format("{0}.{1}.{2}", d[STAMP_SITE + 4], d[STAMP_SITE + 5], d[STAMP_SITE + 6]);
         }
+
+        /// <summary>The cave layout revision a file was patched with, or null when there is no
+        /// stamp. Not the release number - see LAYOUT_REV.</summary>
+        public static int? ReadLayoutRev(byte[] d)
+        {
+            if (d == null || d.LongLength < STAMP_SITE + 8) return null;
+            for (int i = 0; i < 4; i++)
+                if (d[STAMP_SITE + i] != StampMagic[i]) return null;
+            return d[STAMP_SITE + 7];
+        }
+
+        /// <summary>The cave layout revision this build writes and can read back.</summary>
+        public static int OwnLayoutRev { get { return LAYOUT_REV; } }
 
         /// <summary>The version of this patcher, in the same shape ReadStamp returns.</summary>
         public static string OwnVersion()
