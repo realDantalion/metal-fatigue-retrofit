@@ -108,6 +108,10 @@ Vorbis** files (the game's audio layer reads nothing else).
   a different order and you need to sort it out. Rows can be moved with the arrow buttons.
 - **Remove imported music** takes out only the ten files it added and restores the original track
   numbers. The game's own 22 tracks are never touched.
+- **Restore original** does not delete your tracks. It puts the executable back, so the game plays
+  its own music again, but the ten files stay where they are and the Music tab tells you they are
+  ready — one Patch brings them back without importing them again. Use **Remove imported music**
+  when you want the files gone as well.
 
 The track order *should* match the CD, but only the exe's 16-byte table decides which numbers
 Rimtech asks for — so nothing breaks if a track sits one slot off; the wrong piece simply plays.

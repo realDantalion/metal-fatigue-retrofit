@@ -73,12 +73,22 @@ namespace MetalFatiguePatcher
         }
 
         // Fingerprint of a pristine GOG MFatigue.exe (original bytes at key patch sites).
+        //
+        // The version stamp is the load-bearing one, and it is here rather than only in the read-out
+        // for a reason: everything above it belongs to one feature, so the check is only as strong as
+        // "a unit-limit profile was always written". That happens to hold today, but it is an accident
+        // of Apply always taking a profile, and the cost of it ever ceasing to hold is a contaminated
+        // backup - Apply copies a file that looks pristine over the .bak and then treats it as the
+        // original forever, silently. The stamp is written unconditionally by every Apply since 1.4.0
+        // and is eight zero bytes in an untouched exe, so it catches a patched file no matter which
+        // boxes were ticked.
         public static readonly PatchSite[] PristineSignature =
         {
-            new PatchSite { Name = "arena_size",     Offset = 0xd231,  Original = H("0000A000") },
-            new PatchSite { Name = "arena_sentinel", Offset = 0xd243,  Original = H("F4FF9F00") },
-            new PatchSite { Name = "threshold",      Offset = 0xd5b4,  Original = H("00008000") },
-            new PatchSite { Name = "crew_search",    Offset = 0x7b81d, Original = H("7457") },
+            new PatchSite { Name = "arena_size",     Offset = 0xd231,   Original = H("0000A000") },
+            new PatchSite { Name = "arena_sentinel", Offset = 0xd243,   Original = H("F4FF9F00") },
+            new PatchSite { Name = "threshold",      Offset = 0xd5b4,   Original = H("00008000") },
+            new PatchSite { Name = "crew_search",    Offset = 0x7b81d,  Original = H("7457") },
+            new PatchSite { Name = "version_stamp",  Offset = STAMP_SITE, Original = H(Zeros(8)) },
         };
 
         static string Zeros(int n) => new string('0', n * 2);

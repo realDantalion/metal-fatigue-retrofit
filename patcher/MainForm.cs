@@ -814,17 +814,6 @@ namespace MetalFatiguePatcher
             }
         }
 
-        /// <summary>Write (or rewrite) the track-range table edit on top of whatever is patched now.</summary>
-        void ApplyMusicTablePatch(string exe)
-        {
-            var data = File.ReadAllBytes(exe);
-            foreach (var s in PatchData.RimtechMusicSites())
-            {
-                for (int i = 0; i < s.Patched.Length; i++) data[s.Offset + i] = s.Patched[i];
-            }
-            File.WriteAllBytes(exe, data);
-        }
-
         /// <summary>One legend entry: a coloured bullet plus its caption, in the colour it explains.</summary>
         static Label LegendDot(Color c) => new Label
         {
