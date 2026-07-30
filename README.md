@@ -295,11 +295,11 @@ Two things worth stating explicitly, because both look like asset distribution a
 
 ## Status
 
-Reverse engineering complete and all patches validated in-game: no crash at ~60–70 combots plus
+All patches validated in-game: no crash at ~60–70 combots plus
 heavy vehicle and AI battles (framerate is the natural limit now). The GUI patcher is
 feature-complete in 10 languages.
 
-Not yet verified: behaviour in a real **multiplayer** match, and shared vision alongside an ally.
+Not yet verified: behaviour in a real **multiplayer** match, and **multiplayer** shared vision alongside an ally.
 That option was rebuilt in 1.5.0 — it used to give you an ally's vision by taking it away from
 them — so its earlier confirmation no longer covers the current code. It still only affects what
 your own machine draws, and as always every player must run the identical build.
