@@ -128,7 +128,7 @@ buttons, so the sequence is one spawn long.
 
 | | no button | right button | left button |
 |---|---|---|---|
-| **L** | alien combot | alien tank | combot of random parts |
+| **L** | alien neutral enemy combot | alien neutral enemy tank | neutral enemy combot of random parts |
 | **M** | the same, but yours | the same, but yours | the same, but yours |
 
 Everything appears where the camera is looking, so scroll there first — including into unexplored
