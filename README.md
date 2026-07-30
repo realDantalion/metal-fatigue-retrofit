@@ -129,7 +129,7 @@ buttons, so the sequence is one spawn long.
 | | no button | right button | left button |
 |---|---|---|---|
 | **L** | alien combot | alien tank | combot of random parts |
-| **M** | the same three, but yours |
+| **M** | the same, but yours | the same, but yours | the same, but yours |
 
 Everything appears where the camera is looking, so scroll there first — including into unexplored
 terrain, which the game is perfectly happy to place units in. The random combot draws a torso, a
