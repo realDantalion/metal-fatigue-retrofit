@@ -1,0 +1,66 @@
+name: Feedback or idea
+description: Tell me what works, what does not, or what you would like the patcher to do
+title: "[Feedback]: "
+labels: ["feedback"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nothing here is required except the last box. If something is actually broken, the
+        **Bug report** form asks the right questions instead — it collects the patcher log and the
+        file hash, which a free-form message never does.
+
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What is on your mind?
+      description: An idea, a rough edge, something that surprised you, or just what you thought of it.
+      placeholder: |
+        e.g. "The unit slider goes high enough, but I would like a step between 4x and 6x."
+        e.g. "Took me a while to find the parts picker after the redesign."
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part is this about?
+      description: Optional, and skip it if it spans several.
+      options:
+        - Not sure / several
+        - Unit limit
+        - Crew-name limit
+        - Cheats
+        - Experimental (movement speed, alternative cheats)
+        - Music import
+        - The patcher interface itself
+        - Documentation or the Steam guide
+        - Installer
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: Patcher version
+      description: The tag in the bottom-right corner of the patcher window. Filled in automatically when you arrive from the patcher's Feedback link.
+      placeholder: v1.5.0
+    validations:
+      required: false
+
+  - type: input
+    id: game
+    attributes:
+      label: Which release of the game?
+      description: Steam, GOG, or something else. The two are byte-identical, so this is only useful for the odd cases.
+      placeholder: Steam
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: reply
+    attributes:
+      label: Before you send
+      options:
+        - label: I have read [Things that are not bugs](https://github.com/realDantalion/metal-fatigue-retrofit#things-that-are-not-bugs) if this is about something behaving oddly in-game.
+          required: false

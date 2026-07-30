@@ -22,6 +22,11 @@ Both are unsigned, so Windows shows the same *"unknown publisher"* prompt either
 [Is this safe?](#is-this-safe) for how to verify. The patcher never installs itself into the game
 or runs in the background; it edits one file and exits.
 
+**Updating from an older Retrofit?** 1.5.0 moves some of the patch's own code inside the
+executable, so a file patched by 1.4.x or earlier cannot be updated in place. The patcher
+recognises it, says so, and asks you to press **Restore original** first — then patch again.
+One extra click, once. Your settings are read back off the file either way, so nothing is lost.
+
 ## How it works
 
 The patcher operates on **your own legally-owned copy** of `MFatigue.exe`. It never distributes game code — it makes a backup, then patches your binary in place. This is how community patches have worked for decades.
@@ -60,7 +65,9 @@ box to keep what you had.*
 The memory soft cap is kept as a safety valve (blocks gracefully near real exhaustion instead
 of crashing) — just moved far above the artificial 8 MB wall.
 
-**Optional add-on:** *share vision with allies* — allied units also lift your fog of war.
+**Optional add-on:** *share vision with allies* — allied units also lift your fog of war, and
+your allies keep their own sight while doing it. Up to 1.5.0 the option handed you their vision
+by taking it away from them, which left an allied AI effectively blind.
 Combinable with any step of the slider.
 
 ## Cheats (optional)
@@ -69,12 +76,23 @@ A separate **Cheats** tab, layered on top of whatever you set above — nothing 
 for the bug fixes, it's just for fun and experimenting. Everything is individually toggleable:
 
 - **No fog of war**, **Free building**, **Instant build**, **Unlimited high-tier crews** (includes the crew-name limit, so the switch above is not needed alongside it).
-- A **Me only / All players (incl. AI)** switch for Free building and Instant build — hand the
-  AI the same advantages, or keep them for yourself.
-- **Unlock combot parts of other factions** — a checkable tree of every faction's arms, legs and
-  torsos, plus the three faction-specific **superweapons**. Build a Rimtech mech with a Neuropa
-  plasma cannon and MilAgro legs. The AI actually uses unlocked parts too (its own build logic
-  already salvages and researches enemy parts), so there's a scope switch here as well.
+- **Free building** and **Instant build** each carry their own **Me only / All players (incl. AI)**
+  switch, so you can hand the AI one and keep the other to yourself.
+- **No fog of war** needs no such switch: it lifts *your* fog and nobody else's. Until 1.5.0 it
+  used the engine's own reveal call, which floods every player's visibility — the AI included —
+  and left it permanently omniscient. It walks the fog grid itself now and writes only your view.
+- **Unit movement speed** — a multiplier from 1.5x to 6x, for your units or for everyone. 6x is
+  genuinely silly. (It sat on the Experimental tab until 1.5.0; it has been in the wild long enough
+  not to belong there any more.) Before 1.5.0 a boosted unit could look further ahead than the
+  engine had answers for, and steered on whatever happened to sit past the end of that list; that
+  is fixed, so paths at the higher multipliers behave like the lower ones.
+- **Unlock combot parts of other factions** — every faction's arms, legs and torsos, plus the three
+  faction-specific **superweapons**. Build a Rimtech mech with a Neuropa plasma cannon and MilAgro
+  legs. The AI actually uses unlocked parts too (its own build logic already salvages and researches
+  enemy parts), so there's a scope switch here as well.
+  **All** and **None** sit right in the frame; everything else is picked in a window that opens on a
+  click. What you have selected is drawn as its own icons next to the count, so the loadout is
+  visible without opening anything.
 
 Loading an already-patched EXE restores every one of these settings in the interface, so
 re-patching never silently drops what you had.
@@ -87,6 +105,51 @@ Good to know (all working as intended, not bugs):
   afterwards.
 - Unit and crew limits always apply to every player; part unlocks always apply to you (unless you
   flip the switch to all players).
+
+## Experimental (optional)
+
+Its own tab, for things that reach further into the game than the rest. Read the warning at the
+top of it before ticking anything. Since 1.5.0 it holds one setting:
+
+- **Alternative cheats** — Metal Fatigue ships a hidden cheat menu that was only ever made
+  invisible: the buttons are still there, still wired to their hotkeys. This replaces what those
+  two buttons do.
+
+The control sequence, in a running game:
+
+1. **Esc** to open the in-game menu.
+2. **Shift+C** three times within two seconds. Nothing visible happens — the two hidden buttons
+   are simply live from now on. Only the three presses are on a clock; once they have landed you
+   can take as long as you like over the next step.
+3. Hold a mouse button and press **L** or **M**.
+
+All three steps again for every unit: spawning closes the menu, and opening it disarms the two
+buttons, so the sequence is one spawn long.
+
+| | no button | right button | left button |
+|---|---|---|---|
+| **L** | alien combot | alien tank | combot of random parts |
+| **M** | the same three, but yours |
+
+Everything appears where the camera is looking, so scroll there first — including into unexplored
+terrain, which the game is perfectly happy to place units in. The random combot draws a torso, a
+pair of legs and two arms from every faction's parts, so it can come out as anything.
+
+Units spawned with **L** belong to the game's own alien slot: hostile to everyone, including you.
+They defend themselves but never advance on their own, because that slot has no AI behind it.
+
+Two things to know before you tick it:
+
+- The game's own instant-win and MetaJoules cheats are what this replaces. While it is on, they
+  are gone. Not to be confused with **Free building** on the Cheats tab — that one is ours, it is a
+  different patch entirely, and it works alongside the spawning without any conflict.
+- **Single player only.** Spawned units are never sent over the network, so any multiplayer game
+  will desync.
+- **There is a ceiling per level, not per living unit.** The game hands out object slots and never
+  takes them back when something dies, so spawning eventually stops for that owner and the console
+  says *Spawn limit reached*. Losing your spawned units does not free it up; starting the next
+  level does. The refusal is deliberate — spilling past that point corrupts the next player's
+  units.
 
 ## Music: Rimtech's missing soundtrack (optional)
 
@@ -173,6 +236,7 @@ The **GOG and Steam `MFatigue.exe` are byte-identical** (SHA256 `26d428f1…`, t
 - **Something is broken** — use *Bug report*, and paste the contents of the patcher's log box. That alone usually shows the cause.
 - **The patcher hit an unexpected error** — it writes a file named `MetalFatigueRetrofitPatcher-ErrorLog-<date>.txt` next to its own exe and offers to open that folder. **Attach it.** It carries the version, your Windows build, what the patcher was working on and the full stack trace — everything the log box can't tell me. Your Windows user name is stripped out automatically.
 - **The patcher doesn't recognise your build** — use *Unsupported game version* and include the file size and SHA-256 of your `MFatigue.exe`. Only the Nightdive re-release is supported so far.
+- **Nothing is broken, you just want to say something** — use *Feedback or idea*. An idea, a rough edge, something that surprised you. The **Feedback** link in the patcher's own window opens that form with your version already filled in.
 
 ### Worth reporting
 
@@ -199,6 +263,7 @@ All of these are expected — please check the list before opening an issue:
 - **You picked your country's flag in the patcher, but it still refuses your game.** The flags only switch the **patcher's own interface language**. They have nothing to do with which build of the game is supported, and selecting one does not make the patcher work with a differently localised copy.
 - **You installed a fan translation and the patcher no longer recognises the game.** The patcher only ever looks at `MFatigue.exe`. A translation that replaces just data files is completely fine; one that replaces the executable makes it a build the patcher doesn't know, so it refuses on purpose. In that case: restore the original EXE first (on Steam: *Verify integrity of game files*), patch that, then re-apply the translation — and note that if the translation replaces `MFatigue.exe` itself, it will overwrite the patch, so you can only have one or the other.
   - The widely used **German language patch is unaffected** — it was checked, and it only replaces files under `TBD\` (mission data, text, cinematics). It never touches `MFatigue.exe`, so it works alongside this patcher in either order.
+- **Crews in spawned combots have no name, just "(1)".** The engine names a crew as part of deploying a combot the ordinary way, and the spawn cheat does not go through that step. Cosmetic only — the combot itself is a normal unit.
 - **Multiplayer desyncs.** Every player must run the **exact same** patch version. Differently patched EXEs will desync.
 - **Your allies don't see what you see.** *Share vision with allies* only changes **your** view; each player has to enable it for themselves.
 - **The AI is brutally strong.** If you set a cheat's scope to *All players (incl. AI)*, or unlocked parts for all players, the AI gets those advantages too. That's what the switch does.
@@ -231,12 +296,13 @@ Two things worth stating explicitly, because both look like asset distribution a
 ## Status
 
 Reverse engineering complete and all patches validated in-game: no crash at ~60–70 combots plus
-heavy vehicle and AI battles (framerate is the natural limit now), and shared vision confirmed
-working with an allied player. The GUI patcher is feature-complete in 10 languages.
+heavy vehicle and AI battles (framerate is the natural limit now). The GUI patcher is
+feature-complete in 10 languages.
 
-Not yet verified: behaviour in a real **multiplayer** match. Shared vision should be safe there
-— it only affects local rendering — but it has not been tested, and as always every player must
-run the identical build.
+Not yet verified: behaviour in a real **multiplayer** match, and shared vision alongside an ally.
+That option was rebuilt in 1.5.0 — it used to give you an ally's vision by taking it away from
+them — so its earlier confirmation no longer covers the current code. It still only affects what
+your own machine draws, and as always every player must run the identical build.
 
 ## Thanks
 A big thank you to killzone_sx on the GOG forum:

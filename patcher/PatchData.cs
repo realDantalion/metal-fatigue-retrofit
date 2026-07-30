@@ -89,6 +89,7 @@ namespace MetalFatiguePatcher
             new PatchSite { Name = "threshold",      Offset = 0xd5b4,   Original = H("00008000") },
             new PatchSite { Name = "crew_search",    Offset = 0x7b81d,  Original = H("7457") },
             new PatchSite { Name = "version_stamp",  Offset = STAMP_SITE, Original = H(Zeros(8)) },
+            new PatchSite { Name = "rdata_flags",    Offset = 0x22f,      Original = H("40") },
         };
 
         static string Zeros(int n) => new string('0', n * 2);
@@ -173,11 +174,70 @@ namespace MetalFatiguePatcher
 
         // CFogOfWar::Process hook -> cave that calls MakeAllSeen(layer,0) for layers 0/1/2 each frame.
         const long FOG_HOOK = 0x7c70;
+        // Until 1.5.0 this called MakeAllSeen three times, once per layer. MakeAllSeen is only a
+        // shim: it picks the "a vision source is standing here" sentinel and tail-calls the
+        // renderer's FOWFill, whose per-cell body writes the display slot and then rep-movsd's the
+        // same value into all eight player slots. There is no player argument anywhere in that
+        // chain, so the reveal reached every AI as well - and the AI reads its own slot both for
+        // target acquisition and for the world model behind its build decisions. The cheat was
+        // handing the opponent a free map.
+        //
+        // So the walk is ours now, and it writes exactly two of the nine slots per cell:
+        //   cell+0x10          the display slot - terrain shading and the renderer's object cull
+        //   cell+0x10+4*P      the local player's slot - minimap terrain and every check the EXE
+        //                      makes on the player's behalf
+        // Everything else keeps whatever the fog system put there, so an AI's map stays honest.
+        //
+        // Grid shape, all of it verified in both GlideRendEng and SGLRendEng, which agree offset
+        // for offset: pRendEng -> +0xa0 CRendBackground; +0x10 W, +0x12 H, +0x18 layer count;
+        // layer structs are 0x24 bytes from +0x30 with the grid pointer at +0xc, so the first grid
+        // is at +0x3c; cells are 0x34 bytes.
+        //
+        // The walk covers rows 3..H-4, which is the region FOWFill covers. The engine deliberately
+        // leaves a 3-cell frame at the map edge dark, and lighting it would show as a lit border on
+        // the map and the minimap - the near edge is not clipped away, only the far one is.
+        //
+        // Both loops are guarded before they run. The engine guards this same layer count in its
+        // own two loops over it, and a count of zero here would mean a dec/jnz pair walking 2^32
+        // cells through whatever follows the grid.
+        const long FOG_CAVE_END = MJ_CAVE;
+
         static byte[] FogCaveBody() => new CaveAsm(FOG_CAVE)
-            .Raw("6a006a00").Call(0x407a70)                  // MakeAllSeen(0, 0)
-            .Raw("83c4086a006a01").Call(0x407a70)            // MakeAllSeen(1, 0)
-            .Raw("83c4086a006a02").Call(0x407a70)            // MakeAllSeen(2, 0)
-            .Raw("83c408a100a05700").Jmp(0x407c75)           // relocated mov eax,[0x57a000]; back
+            .Raw("53565755")                    // push ebx/esi/edi/ebp - the hook is Process's first
+                                                //   byte, so these still belong to its caller
+            .Raw("a1bc295200")                  // mov   eax,[pRendEng]
+            .Raw("8bb0a0000000")                // mov   esi,[eax+0xa0]        CRendBackground
+            .Raw("0fb74610")                    // movzx eax,word [esi+0x10]   W
+            .Raw("0fb74e12")                    // movzx ecx,word [esi+0x12]   H
+            .Raw("83e906")                      // sub   ecx,6                 drop the 3-cell frame
+            .Raw("0fafc8")                      // imul  ecx,eax               cells to write
+            .Raw("69c09c000000")                // imul  eax,eax,0x9c          three rows, in bytes
+            .Raw("50")                          // push  eax                   no register left for it
+            .Raw("85c9")                        // test  ecx,ecx
+            .Raw("7e2f")                        // jle   done                  tiny or absent grid
+            .Raw("8b3db8295200")                // mov   edi,[PlayerIndex]     0..8, so the scaled
+            .Raw("8b6e18")                      // mov   ebp,[esi+0x18]        store cannot leave the cell
+            .Raw("85ed")                        // test  ebp,ebp
+            .Raw("7422")                        // jz    done
+            .Raw("83c63c")                      // add   esi,0x3c              &layer[0].pGrid
+            .Raw("bb9976967e")                  // mov   ebx,1e38              MakeAllSeen's own constant
+                                                // layer:
+            .Raw("8b16")                        // mov   edx,[esi]             this layer's grid
+            .Raw("031424")                      // add   edx,[esp]             skip the frame rows
+            .Raw("8bc1")                        // mov   eax,ecx
+                                                // cell:
+            .Raw("895a10")                      // mov   [edx+0x10],ebx        display slot
+            .Raw("895cba10")                    // mov   [edx+edi*4+0x10],ebx  local player's slot
+            .Raw("83c234")                      // add   edx,0x34
+            .Raw("48")                          // dec   eax
+            .Raw("75f3")                        // jnz   cell
+            .Raw("83c624")                      // add   esi,0x24
+            .Raw("4d")                          // dec   ebp
+            .Raw("75e6")                        // jnz   layer
+                                                // done:
+            .Raw("58")                          // pop   eax                   drop the row offset
+            .Raw("5d5f5e5b")                    // pop   ebp/edi/esi/ebx
+            .Raw("a100a05700").Jmp(0x407c75)    // relocated mov eax,[0x57a000]; back
             .Bytes;
 
         static List<PatchSite> UnleashedSites()
@@ -221,11 +281,35 @@ namespace MetalFatiguePatcher
         // id, so the ally's vision clears the local player's fog instead. Asks the game's own static
         // CPlayerManager::IsAlly, so in-game alliance changes are honoured automatically.
         // eax (already masked for the call) is saved across the cdecl call; esi/edi are free to use.
-        const long SV_HOOK = 0x7b6c;
+        // ?UpdateVisible@CFogOfWar@@QAEXXZ (0x407ae0) is called once per vision source on every
+        // fog pass, and ends by handing the renderer five arguments - position, layer, radius,
+        // "is a structure", and the OWNER at [esi+0x1c]. The renderer writes that owner's fog slot,
+        // cell+0x10+4*owner, and additionally the display slot 0 when the owner happens to be the
+        // local player.
+        //
+        // Up to 1.5.0 this feature hooked the owner load at 0x7b6c and, for an allied source,
+        // REPLACED the owner with the local index. That gave the local player his ally's vision by
+        // taking it away: the ally's own slot stopped being written anywhere on the map. For a
+        // human ally in multiplayer that only affects the patched machine's copy of his units, but
+        // an allied AI reads its own slot for target acquisition and for its world model, so it
+        // went effectively blind - the patch made the ally useless as an ally.
+        //
+        // The hook now sits on the render call itself at 0x7b90, which is what makes the fix fit:
+        // after the call eax is dead, so nothing has to be preserved across IsAlly, and the second
+        // pass can be a tail jump back into the game's own argument setup instead of eighteen bytes
+        // of re-pushed arguments. Pass one runs verbatim vanilla with the true owner. Only then, if
+        // the source belongs to an ally, does the cave run the setup a second time with the local
+        // index, so the local player's slot is filled as well. Recursion terminates on its own: the
+        // second pass arrives with owner == PlayerIndex and the first test sends it straight to the
+        // epilogue.
+        const long SV_HOOK        = 0x7b90;   // the call dword [edx+0x8c] at the end of UpdateVisible
+        const long SV_HOOK_LEGACY = 0x7b6c;   // where 1.1.x..1.5.0 hooked instead - see LegacyLayouts
 
         static byte[] SharedVisionCaveBody() => new CaveAsm(SV_CAVE)
-            .Raw("8b7e1c25ff0000003b3db8295200741b50ff35b829520057").Call(0x4788f0)   // IsAlly(owner, local)
-            .Raw("83c40885c05874068b3db8295200").Jmp(0x407b74)
+            .Raw("ff928c000000")                     // relocated: the ally's OWN slot, exactly as vanilla
+            .Raw("a1b82952003bf8741d5057").Call(0x4788f0)   // local? ally? -> IsAlly(owner, local)
+            .Raw("83c40885c0740f8b3db82952000fb64624").Jmp(0x407b74)   // owner := local, rebuild arg4, go again
+            .Raw("5f5ec3")                           // inlined epilogue of 0x407b96: pop edi / pop esi / ret
             .Bytes;
 
         public static List<PatchSite> SharedVisionSites()
@@ -233,7 +317,7 @@ namespace MetalFatiguePatcher
             var cave = SharedVisionCaveBody();
             return new List<PatchSite>
             {
-                new PatchSite { Name = "shared_vision_hook", Offset = SV_HOOK,  Original = H("8b7e1c25ff000000"), Patched = HookJmp(SV_HOOK, SV_CAVE, 8) },
+                new PatchSite { Name = "shared_vision_hook", Offset = SV_HOOK,  Original = H("ff928c000000"), Patched = HookJmp(SV_HOOK, SV_CAVE, 6) },
                 new PatchSite { Name = "shared_vision_cave", Offset = SV_CAVE,  Original = H(Zeros(cave.Length)), Patched = cave },
             };
         }
@@ -251,7 +335,7 @@ namespace MetalFatiguePatcher
         // All FILE offsets (file_offset == RVA in this build). VAs are formed by adding IMAGE_BASE
         // where a jump/hook target is computed; do not bake IMAGE_BASE into these constants.
         const long GATE_HOOK = 0xbade9;     // 11 bytes overwritten: mov ecx,[esi+0x4c]; test eax,ecx; je
-        const long UNLOCK_CAVE = 0xd1dd0;   // free space right after the shared-vision cave
+        const long UNLOCK_CAVE = 0xd1dd4;   // free space right after the shared-vision cave
         const long GATE_SKIP = 0xbaec0;     // original je target (part unavailable)
         const long GATE_CONT = 0xbadf4;     // original fall-through
         const uint IMAGE_BASE = 0x400000;
@@ -275,11 +359,16 @@ namespace MetalFatiguePatcher
         // one of which (the shared JetPack torso) is a duplicate PartsUnlockSites folds away, so 50
         // entries = 245 bytes. Before that dedupe it came to 249 and the old 248-byte bound made
         // exactly that combination throw instead of patching.
-        const long FOG_CAVE = 0xd1ce0;
-        const long MJ_CAVE = 0xd1d10;
-        const long RES_CAVE = 0xd1d40;
-        const long BT_CAVE = 0xd1d70;
-        const long SV_CAVE = 0xd1da0;
+        // Repacked in 1.5.0 to give the fog cave the room a per-player reveal needs. The zone
+        // starts at 0xd1cd2, and the 14 bytes that used to sit unused in front of the fog cave
+        // are part of its allocation now. Every body below is position-independent - CaveAsm
+        // derives its rel32 from the cave offset and HookJmp from both - so moving a cave is
+        // editing one constant.
+        const long FOG_CAVE = 0xd1cd2;
+        const long MJ_CAVE = 0xd1d38;
+        const long RES_CAVE = 0xd1d5b;
+        const long BT_CAVE = 0xd1d7e;
+        const long SV_CAVE = 0xd1da5;
         const long UNLOCK_CAVE_END = 0xd1ed0;   // parts must not reach the crew-name cave
         const long CAVE_ZONE_END = 0xd2000;
 
@@ -314,8 +403,22 @@ namespace MetalFatiguePatcher
             new LegacyLayout { Release = "1.1.x", HookOffset = MJ_HOOK,   CaveOffset = 0xd1d40 },
             new LegacyLayout { Release = "1.1.x", HookOffset = RES_HOOK,  CaveOffset = 0xd1d70 },
             new LegacyLayout { Release = "1.1.x", HookOffset = BT_HOOK,   CaveOffset = 0xd1da0 },
-            new LegacyLayout { Release = "1.1.x", HookOffset = SV_HOOK,   CaveOffset = 0xd1de0 },
+            new LegacyLayout { Release = "1.1.x", HookOffset = SV_HOOK_LEGACY, CaveOffset = 0xd1de0 },
             new LegacyLayout { Release = "1.1.x", HookOffset = GATE_HOOK, CaveOffset = 0xd1e20 },
+
+            // Shared vision moved its hook in 1.5.0, from the owner load to the render call. A file
+            // carrying the old hook must not be updated in place: the new hook site is still
+            // pristine there, so patching would leave the old jmp standing and both would run into
+            // a cave that no longer means what the old hook expects.
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = SV_HOOK_LEGACY, CaveOffset = 0xd1da0 },
+
+            // 1.2.x - 1.4.x cave placement, retired by the 1.5.0 repack. One row per hook, so a
+            // file from that generation is recognised whichever feature it happens to carry.
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = FOG_HOOK,  CaveOffset = 0xd1ce0 },
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = MJ_HOOK,   CaveOffset = 0xd1d10 },
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = RES_HOOK,  CaveOffset = 0xd1d40 },
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = BT_HOOK,   CaveOffset = 0xd1d70 },
+            new LegacyLayout { Release = "1.2.x - 1.4.x", HookOffset = GATE_HOOK, CaveOffset = 0xd1dd0 },
         };
 
         /// <summary>Where a 5-byte E9 at <paramref name="hookOff"/> lands, as a file offset, or -1.</summary>
@@ -548,7 +651,44 @@ namespace MetalFatiguePatcher
             sites.Add(SpeedHook("move_speed_hook1", SPEED_HOOK1, stub1, "d941148b410c"));
             sites.Add(SpeedHook("move_speed_hook2", SPEED_HOOK2, stub2, "d905a47e4d00d84914"));
             sites.Add(SpeedHook("move_speed_hook3", SPEED_HOOK3, stub3, "d84914d981a0000000"));
+            sites.AddRange(SpeedLookaheadClampSites());
             return sites;
+        }
+
+        // The path look-ahead at 0x4393c0 decides how many probe points to walk ahead of a moving
+        // unit, and looks each result up in a FIVE-entry table at 0x50c400 (5, 6, 4, 4, 4). The
+        // count is
+        //     N = trunc((PI - |headingError|) * (1/MaxVelocity) * currentVelocity * ramp + 2.0)
+        // where 1/MaxVelocity is baked into the mover at 0x43854d and currentVelocity converges on
+        // whatever the integrator is told to aim for. The product of those two is meant to be a
+        // 0..1 speed ratio, which is why five entries are exactly enough in vanilla: at full speed,
+        // straight ahead, N tops out at 5 and index 4 is the last entry.
+        //
+        // This patch scales the target velocity but not the reciprocal, so that ratio becomes the
+        // multiplier itself and N grows with it - 6 at 1.5x, 21 at 6x. The load at 0x439691 has no
+        // bounds check (its sibling switch at 0x43948e does), so it reads past the table into
+        // 0, 0xc, 0, 0 and the unit acts on response flags that were never meant for it.
+        //
+        // Clamping the count is better than lengthening the table: it needs no data space, and it
+        // restores exactly the vanilla ceiling rather than inventing behaviour for indices the
+        // engine never defined. The clamp goes in a trampoline in the 15 bytes of alignment padding
+        // after CVehicleMover::Init, and the existing __ftol call is redirected through it - so
+        // nothing moves and no cave byte is spent. Checked image-wide: no branch and no data word
+        // reaches into 0x438551..0x43855f.
+        const long SPEED_FTOL_REL = 0x39448;    // the rel32 of the call at 0x439447, opcode untouched
+        const long SPEED_CLAMP    = 0x38551;    // alignment padding after Init's ret at 0x438550
+
+        static List<PatchSite> SpeedLookaheadClampSites()
+        {
+            return new List<PatchSite>
+            {
+                // call 0x4c5230 -> call 0x438551
+                new PatchSite { Name = "speed_lookahead_call",  Offset = SPEED_FTOL_REL, Original = H("e4bd0800"), Patched = H("05f1ffff") },
+                //   call __ftol / cmp eax,5 / jle +3 / push 5 / pop eax / ret
+                new PatchSite { Name = "speed_lookahead_clamp", Offset = SPEED_CLAMP,
+                                Original = H("909090909090909090909090909090"),
+                                Patched  = H("e8dacc080083f8057e036a0558c390") },
+            };
         }
 
         /// <summary>jmp into the cave, padded with nops to exactly cover the original instructions.</summary>
@@ -770,7 +910,11 @@ namespace MetalFatiguePatcher
         // moved nothing would be pure noise. 1.4.0 wrote a zero here and its layout is still the
         // current one. Bump this when a cave offset, a hook target or the meaning of a patched byte
         // moves - never just because a version shipped.
-        const byte LAYOUT_REV = 0;
+        // 1 since 1.5.0: shared vision's hook moved from 0x7b6c to 0x7b90. A file carrying the
+        // old hook cannot be updated in place - the new site is still pristine there, so the old
+        // jmp would survive alongside the new one and both would enter a cave that no longer
+        // means what the old hook expects. Restore original first.
+        const byte LAYOUT_REV = 1;
 
         public static List<PatchSite> VersionStampSites()
         {
@@ -815,15 +959,20 @@ namespace MetalFatiguePatcher
         }
 
         /// <summary>Assemble the patch sites for the chosen cheat features and scope.</summary>
-        public static List<PatchSite> CheatFeatureSites(ICollection<string> features, bool allPlayers)
+        public static List<PatchSite> CheatFeatureSites(ICollection<string> features, bool freeBuildAll, bool turboAll)
         {
             var l = new List<PatchSite>();
             if (features == null || features.Count == 0) return l;
 
-            // Fog of war off - view-only, so identical in both scopes.
+            // Fog of war off, for the local player and nobody else - so it needs no scope switch.
+            // See FogCaveBody for why it walks the grid itself rather than calling MakeAllSeen.
             if (features.Contains(CheatFog))
             {
                 var fog = FogCaveBody();
+                if (FOG_CAVE + fog.Length > FOG_CAVE_END)
+                    throw new System.InvalidOperationException(
+                        string.Format("Fog cave overflows into the next cave ({0} bytes, max {1}).",
+                                      fog.Length, FOG_CAVE_END - FOG_CAVE));
                 l.Add(new PatchSite { Name = "fog_redirect", Offset = FOG_HOOK, Original = H("a100a05700"),      Patched = HookJmp(FOG_HOOK, FOG_CAVE, 5) });
                 l.Add(new PatchSite { Name = "fog_cave",     Offset = FOG_CAVE, Original = H(Zeros(fog.Length)), Patched = fog });
             }
@@ -832,7 +981,7 @@ namespace MetalFatiguePatcher
             // never touched). "All" stubs each gate to return 1; "player" uses the owner-checking caves.
             if (features.Contains(CheatFreeBuild))
             {
-                if (allPlayers)
+                if (freeBuildAll)
                 {
                     l.Add(new PatchSite { Name = "free_metajoules_all", Offset = 0x7a350, Original = H("d981c0000000d85c"), Patched = H("b801000000c20400") });
                     l.Add(new PatchSite { Name = "free_resource_all",   Offset = 0x7a050, Original = H("d981cc000000d881"), Patched = H("b801000000c20800") });
@@ -851,7 +1000,7 @@ namespace MetalFatiguePatcher
             // Instant build: BuildTime -> 1.0 (fld1). NOT 0 - zero hangs the production queue.
             if (features.Contains(CheatTurbo))
             {
-                if (allPlayers)
+                if (turboAll)
                     l.Add(new PatchSite { Name = "fast_build_all",  Offset = 0xa7220, Original = H("8b89500100"),   Patched = H("d9e8c20400") });
                 else
                 {
@@ -934,16 +1083,138 @@ namespace MetalFatiguePatcher
         public static bool HasRimtechMusic(byte[] d) =>
             Has(d, MUSIC_TABLE, "180000001c0000001d00000021000000");
 
+
+        // --- Alternative cheats: spawn units from the game's own hidden cheat menu ------------------
+        //
+        // Metal Fatigue ships a working cheat panel that Zono only made invisible: three widgets on
+        // the ESC menu named InGameCheatEnable / InGameCheatMj / InGameCheatWin, with hotkeys 'C',
+        // 'm' and 'l'. Three Shift+C presses inside two seconds set the shown-bit on the other two
+        // (counter at menu+0x104, 2.0f window at 0x4d2bcc), after which 'm' grants 10000 MetaJoules
+        // and 'l' wins the mission outright. Both branches are replaced here.
+        //
+        // The payload creates gobjects through ?Create@CGobject@@SAPAV1@KG@Z (0x42a4c0) and places
+        // them at the camera focus from ?GetLookAtPos@CCamera@@QAEXAAVCLVector@@@Z (0x45def0). A
+        // chassis built this way gets the engine's field-assembly brain rather than the factory one,
+        // and the six-record arrangement it needs - chassis, legs, torso, two arms, crew - is the one
+        // the campaign uses for the alien combot it places in X_08. The payload does the assembling
+        // itself; see below for why. Owner 0 is the engine's own alien slot (its crew name at 0x512380[0] is
+        // literally "Alien"), and IsAlly returns false whenever either index is 0, so those units are
+        // hostile to everyone. A player-0 chassis also inherits the targetable bit automatically once
+        // its crew is player 0 (0x48e32a), which is what makes it attackable rather than scenery.
+        //
+        // 937 bytes is far more than the 14 free bytes left in the .text cave zone, so this one lives
+        // in .rdata's section slack (VA 0x508c57, verified all zero) and the section is marked
+        // executable by a single header byte. The image has no relocations, no DEP opt-in and a zero
+        // checksum, so nothing else has to change and the file size stays identical.
+        //
+        // The parts are attached explicitly - CRobot::AddPart (0x48e670) per part, then SetCrew
+        // (0x48ea10) - rather than left lying on the ground for the engine's field-assembly brain to
+        // collect. That brain's candidate filter (0x48f820) tests slot, unattached, layer and distance
+        // and nothing else: no owner, no grouping. Two spawn groups inside its 400-unit radius left
+        // twelve loose parts and two chassis rummaging through the same heap, which crashed the game a
+        // moment later in a constructor reading a pointer that belonged to the other group. Attaching
+        // as each part is created makes that unrepresentable. The assembly brain would then undo the
+        // work - finding nothing to do it detaches slot 0 - so the payload finishes the robot the way
+        // the engine does: BackToBrain leaves the ordinary vehicle brain pending and NewBrain promotes
+        // it over the assembly one.
+        //
+        // It also refuses when the owner is out of handles. The allocator at 0x429e90 only ever
+        // increments the per-owner cursor at [owner*4 + 0x525250] - no search for a free slot, no
+        // bounds check - and a destroyed unit never gives its handle back, so spawning is a budget
+        // spent per level rather than per living unit. Past the window from the seed table at
+        // 0x50b7b8 (player 0 gets 1499, everyone else 8000) the cursor walks into the next player's
+        // handles and corrupts them. The payload compares against seed[owner+1] and prints a refusal
+        // through the same message call the vanilla MetaJoules cheat used.
+        //
+        // Each part is checked before it is created. CBasicGobject's ctor (0x4a6880) copies a
+        // 67-dword per-player stats block into +0x38..+0x143, but only when GetExtraData(classId)
+        // (0x42a5c0) and the pointer behind it are both there. +0x140 is the last dword of that
+        // block and the shared arm ctor dereferences it two instructions later, so a class without
+        // a stats block takes the process down inside Create - before the payload can inspect what
+        // it got back. That is what the random crashes at 0x49f1fc were: raw heap, which read as a
+        // valid pointer often enough to look intermittent.
+        //
+        // A random loadout has no reason to settle for an empty shoulder because the die landed
+        // on a prototype arm this level never loaded, so the draw itself retries - up to forty
+        // times, which makes a miss impossible in practice even when the level loaded a third of
+        // the table. The fixed alien combot deliberately does NOT redraw: quietly swapping an
+        // alien arm for a Rimtech one is not what that mode promises, so there the part is simply
+        // left off. The part loop keeps the same check as the last line of defence for exactly
+        // that case.
+        //
+        // Each part also gets the chassis handle written into +0x18. Create builds a synthetic
+        // handle whose LOWORD is 0, and the part brain at 0x49f9a0 reads exactly that: a part with
+        // no creator sitting at position (0,0) - which is what an attached part's relative position
+        // is - gets donated to the owner's spare-parts inventory. That is why spawned torsos turned
+        // up in an assembly bay nobody had used yet. Vanilla parts always carry a real creator, and
+        // now these do too, which is also simply true: the robot did create them.
+        //
+        // The blob is emitted from the verified build, never retyped. It was disassembled instruction
+        // by instruction and every branch target checked against an instruction boundary.
+        const long ALIEN_CAVE   = 0x108c57;   // .rdata slack, 937 bytes available
+        const long ALIEN_HOOK_L = 0x10fd0;    // the vanilla instant-win branch
+        const long ALIEN_HOOK_M = 0x10f92;    // the vanilla MetaJoules branch, message and all
+        const long RDATA_FLAGS  = 0x22f;      // high byte of .rdata's Characteristics dword
+
+        const string AlienCaveHex =
+            "609c6a00e81d0000009d61e97383f0ff609c0fb705b829520050e8070000009d" +
+            "61e94483f0ff83ec348b44243889442430a1bc29520085c00f8432020000a170" +
+            "a0570085c00f8425020000fc33c08bfcb90c000000f3ab8b0d70a057008bc450" +
+            "e83452f5ff8b04240b4424040b44240885c00f84f8010000a1c029520085c074" +
+            "0c83782800751b83782400751f33c98b048dff8e500089448c104183f90672ef" +
+            "eb56c74424107210246beb4cc744241063803918be4b8f50006a105be8cb0100" +
+            "00897c2414be178f50006a0d5be8ba010000897c2418be8b8f50006a185be8a9" +
+            "010000897c241ce8a0010000897c2420c7442424116671dd8b4c243083f90877" +
+            "138b048d5052520083c0103b048dbcb75000722ea12805520085c00f844f0100" +
+            "008b0d142a520085c90f844101000068eb8f500051e83fd1faff83c408e92e01" +
+            "00008b4424108b4c24305150e81817f2ff83c40885c00f84140100008944242c" +
+            "8bc88b108bdc53ff5260837c2414000f84fb0000006a018b4c2430e86956f8ff" +
+            "8b4c24288b7c8c1485ff7440e8e500000074398b4c24305157e8cb16f2ff83c4" +
+            "0885c074278bf08bc88b108bdc53ff52608b44242c8b40148946188b4c24286a" +
+            "0051568b4c2438e84d58f8ffff442428837c24280472a98b4424248b4c243051" +
+            "50e88316f2ff83c40885c074168bf08bc88b108bdc53ff5260568b4c2430e8b6" +
+            "5bf8ff8b74242c6a008bcee8d955f8ff8bcee8724ef8ff8b068dbe540100006a" +
+            "00578bceff90400300008b46146a006a0057506a018bcee84dfef9ff8b8e4801" +
+            "00008b06518bceff90880100008b068bceff90e80200008b068bceff904c0300" +
+            "008b463485c07408508bcee84919f2ff83c434c2040057e8ed16f2ff5985c074" +
+            "0a8b0085c074048b0085c0c36a285de82bd5fbff0fafc3c1e80f8b3c86e8d4ff" +
+            "ffff75034d75e8c363803918788bc27df01a6ea67b46787f2d06488c116671dd" +
+            "f01a6ea600f7b924aaf5a898de2af28fc8607a9607387a2c39cefd864eb2983d" +
+            "f239387b3f287b6281321f41a13ac8538d28de25788bc27d2ebadba29f0a5ad5" +
+            "7bc05f96013d3b3813584542df74d28c039fb4c33d65522e44afda370c9da063" +
+            "a76231049848425d76fdc7b4ce8fb1ccbb8bbd8a8571d5e327379b288e51afb9" +
+            "f5db7c494c254c77d22aa6dcf6082c4b59330b94177609762ef8c4bbd20fa37a" +
+            "b59f6579878bbb3d1ee5ae7f22d9c76aa57da14d7b46787f25a3b23c85af7794" +
+            "6ee2d2ee2d06488c3b36f8df3661ead0696b64ef537061776e206c696d697420" +
+            "7265616368656400";
+
+        public static List<PatchSite> AlienSpawnSites()
+        {
+            var cave = H(AlienCaveHex);
+            return new List<PatchSite>
+            {
+                new PatchSite { Name = "alien_rdata_exec", Offset = RDATA_FLAGS,  Original = H("40"),                        Patched = H("60") },
+                new PatchSite { Name = "alien_cave",       Offset = ALIEN_CAVE,   Original = H(Zeros(cave.Length)),          Patched = cave },
+                new PatchSite { Name = "alien_hook_win",   Offset = ALIEN_HOOK_L, Original = H("c7054c2d520001000000"), Patched = H("e9827c0f009090909090") },
+                new PatchSite { Name = "alien_hook_mj",    Offset = ALIEN_HOOK_M, Original = H("8b0d142a520068043c4d0051e82d4f0a00668b15b829520052e8a078060083c40c8bc86a016800401c46e84f960600"),
+                                                                                   Patched  = H("e9d07c0f00909090909090909090909090909090909090909090909090909090909090909090909090909090909090") },
+            };
+        }
+
+        /// <summary>True if the alternative cheats are installed (the win branch is redirected).</summary>
+        public static bool HasAlienSpawn(byte[] d) => Has(d, ALIEN_HOOK_L, "e9827c0f009090909090");
+
         public sealed class Installed
         {
             public bool RimtechMusic;
             public bool Fog, FreeBuild, Turbo, Crews;
             public bool CrewLimitOff;                  // the crew-name limit lifted on its own (1.4.0+)
-            public bool CheatScopeAll;                 // player vs all for free-build / instant-build
+            public bool FreeBuildScopeAll, TurboScopeAll;   // each cheat carries its own scope
             public bool PartsUnlock, PartsScopeAll;
             public readonly List<uint> UnlockedAddrs = new List<uint>();
             public bool MoveSpeed, MoveSpeedScopeAll;  // experimental: unit movement speed
             public double MoveSpeedFactor;
+            public bool AlienSpawn;                    // experimental: alternative cheats
         }
 
         static bool Has(byte[] d, long off, byte[] b)
@@ -975,8 +1246,10 @@ namespace MetalFatiguePatcher
             bool tbAll = Has(d, BT_HOOK, "d9e8c20400");
             bool tbPlayer = Has(d, BT_HOOK, HookJmp(BT_HOOK, BT_CAVE, 6));
             r.Turbo = tbAll || tbPlayer;
-            // scope is shared by the two; read it from whichever is present
-            r.CheatScopeAll = fbAll || (tbAll && !fbPlayer);
+            // Each scope is read from its own site, so a file with one cheat global and the other
+            // local restores exactly as it was written.
+            r.FreeBuildScopeAll = fbAll;
+            r.TurboScopeAll = tbAll;
 
             r.Crews = Has(d, 0x7c220, "b863000000c20400");
             // The flip is two bytes anywhere; what identifies the option is its accounting hook.
@@ -1007,10 +1280,20 @@ namespace MetalFatiguePatcher
             {
                 r.MoveSpeed = true;
                 r.MoveSpeedFactor = System.BitConverter.ToSingle(d, (int)SPEED_CAVE);
+                // The owner gate is what tells the two scopes apart. Look for the gate the cave
+                // actually emits - movzx eax, word [ecx+0x42], the high word of the mover's
+                // THGOBJECT. This used to search for mov eax,[ecx+0x28] and had gone stale: that
+                // was the original gate, dropped when [ecx+0x28] turned out to be CMover::m_player
+                // and permanently zero for these objects. Nothing emitted 8B 41 28 any more, so
+                // every patched file read back as "all players" and reopening the patcher silently
+                // widened the scope.
                 r.MoveSpeedScopeAll = true;
-                for (long i = SPEED_CAVE; i < SPEED_CAVE + 128 && i + 3 <= d.LongLength; i++)
-                    if (d[i] == 0x8B && d[i + 1] == 0x41 && d[i + 2] == 0x28) { r.MoveSpeedScopeAll = false; break; }
+                for (long i = SPEED_CAVE; i < SPEED_CAVE + 128 && i + 4 <= d.LongLength; i++)
+                    if (d[i] == 0x0F && d[i + 1] == 0xB7 && d[i + 2] == 0x41 && d[i + 3] == 0x42)
+                    { r.MoveSpeedScopeAll = false; break; }
             }
+            r.AlienSpawn = HasAlienSpawn(d);
+
             return r;
         }
 

@@ -545,6 +545,18 @@ namespace MetalFatiguePatcher
                 "查看许可证 (GNU GPL v3)",
                 "Показать лицензию (GNU GPL v3)" } },
 
+            { "link.feedback", new[]{
+                "Feedback",
+                "Feedback",
+                "Comentarios",
+                "Comentários",
+                "Feedback",
+                "Retour",
+                "フィードバック",
+                "피드백",
+                "反馈",
+                "Отзыв" } },
+
             { "credits.thanks", new[]{
                 "Thanks to Zono for Metal Fatigue, and to Nightdive Studios for the re-release.",
                 "Dank an Zono für Metal Fatigue und an Nightdive Studios für die Neuveröffentlichung.",
@@ -1039,21 +1051,129 @@ namespace MetalFatiguePatcher
                 "⚠ 이 기능들은 게임의 핵심 동작을 바꾸며 저장 게임이나 멀티플레이를 손상시킬 수 있습니다. 먼저 백업하고 본인 책임하에 사용하세요.",
                 "⚠ 这些功能会改变游戏的核心行为，可能损坏存档或多人游戏。请先备份，风险自负。",
                 "⚠ Эти функции меняют базовое поведение игры и могут повредить сохранения или мультиплеер. Сделайте резервную копию и используйте на свой риск." } },
-            { "grp.expsoon", new[]{
-                "Features", "Funktionen", "Funciones", "Recursos", "Funzioni", "Fonctions", "機能", "기능", "功能", "Функции" } },
-            { "exp.soon", new[]{
-                "More experimental features will follow in later versions.",
-                "Weitere experimentelle Features folgen in späteren Versionen.",
-                "Más funciones experimentales llegarán en versiones posteriores.",
-                "Mais recursos experimentais virão em versões futuras.",
-                "Altre funzioni sperimentali arriveranno nelle versioni successive.",
-                "D'autres fonctions expérimentales suivront dans les prochaines versions.",
-                "実験的機能は今後のバージョンでさらに追加されます。",
-                "추가 실험적 기능은 향후 버전에서 제공됩니다.",
-                "更多实验性功能将在后续版本中加入。",
-                "Другие экспериментальные функции появятся в следующих версиях." } },
             { "grp.expspeed", new[]{
                 "Unit movement speed", "Bewegungsgeschwindigkeit der Einheiten", "Velocidad de movimiento de las unidades", "Velocidade de movimento das unidades", "Velocità di movimento delle unità", "Vitesse de déplacement des unités", "ユニットの移動速度", "유닛 이동 속도", "单位移动速度", "Скорость передвижения юнитов" } },
+
+            { "grp.alien", new[]{
+                "Alternative cheats",
+                "Alternative Cheats",
+                "Trucos alternativos",
+                "Trapaças alternativas",
+                "Trucchi alternativi",
+                "Codes alternatifs",
+                "代替チート",
+                "대체 치트",
+                "替代作弊器",
+                "Альтернативные читы" } },
+
+            { "alien.label", new[]{
+                "Replace the game's hidden cheats with unit spawning",
+                "Versteckte Cheats des Spiels durch Einheiten-Spawn ersetzen",
+                "Sustituir los trucos ocultos del juego por generación de unidades",
+                "Substituir as trapaças ocultas do jogo por geração de unidades",
+                "Sostituisci i trucchi nascosti del gioco con la creazione di unità",
+                "Remplacer les codes cachés du jeu par l'apparition d'unités",
+                "ゲームの隠しチートをユニット生成に置き換える",
+                "게임의 숨겨진 치트를 유닛 생성으로 바꾸기",
+                "将游戏隐藏的作弊器换成单位生成",
+                "Заменить скрытые читы игры созданием юнитов" } },
+
+            { "alien.first", new[]{
+                "needed before every single spawn — the menu closes as the unit appears",
+                "vor jedem einzelnen Spawn nötig — das Menü schließt sich, sobald die Einheit erscheint",
+                "necesario antes de cada generación — el menú se cierra al aparecer la unidad",
+                "necessário antes de cada geração — o menu fecha quando a unidade aparece",
+                "necessario prima di ogni creazione — il menu si chiude appena appare l'unità",
+                "nécessaire avant chaque apparition — le menu se ferme dès que l'unité apparaît",
+                "生成のたびに必要 — ユニットが現れるとメニューは閉じます",
+                "생성할 때마다 필요 — 유닛이 나타나면 메뉴가 닫힙니다",
+                "每次生成前都需要 — 单位出现时菜单会关闭",
+                "нужно перед каждым созданием — меню закрывается, как только юнит появится" } },
+
+            { "alien.combot", new[]{
+                "Alien combot",
+                "Alien-Combot",
+                "Combot alienígena",
+                "Combot alienígena",
+                "Combot alieno",
+                "Combot alien",
+                "エイリアンコンボット",
+                "에일리언 콤봇",
+                "外星机兵",
+                "Чужой комбот" } },
+
+            { "alien.tank", new[]{
+                "Alien tank",
+                "Alien-Panzer",
+                "Tanque alienígena",
+                "Tanque alienígena",
+                "Carro alieno",
+                "Char alien",
+                "エイリアン戦車",
+                "에일리언 전차",
+                "外星坦克",
+                "Чужой танк" } },
+
+            { "alien.random", new[]{
+                "Combot of random parts from every faction",
+                "Combot aus zufälligen Teilen aller Fraktionen",
+                "Combot de piezas al azar de todas las facciones",
+                "Combot de peças aleatórias de todas as facções",
+                "Combot con pezzi casuali di tutte le fazioni",
+                "Combot fait de pièces aléatoires de toutes les factions",
+                "全勢力のパーツを無作為に組んだコンボット",
+                "모든 진영의 부품을 무작위로 조립한 콤봇",
+                "由各阵营随机部件组成的机兵",
+                "Комбот из случайных деталей всех фракций" } },
+
+            { "alien.hostile", new[]{
+                "hostile to everyone",
+                "allen feindlich",
+                "hostil para todos",
+                "hostil a todos",
+                "ostile a tutti",
+                "hostile à tous",
+                "全員に敌対",
+                "모두에게 적대적",
+                "敌对所有人",
+                "враждебен ко всем" } },
+
+            { "alien.yours", new[]{
+                "yours",
+                "gehört dir",
+                "tuyo",
+                "seu",
+                "tuo",
+                "à vous",
+                "自分のもの",
+                "당신의 것",
+                "归你所有",
+                "ваш" } },
+
+
+            { "alien.note", new[]{
+                "Replaces the game's own instant-win and MetaJoules cheats, so those two are gone. Free building on the Cheats tab is a different thing — that one is ours and works alongside this.",
+                "Ersetzt Sofortsieg und MetaJoules-Cheat des Spiels, die zwei sind damit weg. Der Freibau-Cheat im Cheats-Reiter ist etwas anderes — der ist unser und läuft parallel dazu.",
+                "Sustituye los trucos de victoria instantánea y MetaJoules del juego, así que esos dos desaparecen. La construcción gratuita de la pestaña Trucos es otra cosa: es nuestra y funciona junto a esto.",
+                "Substitui as trapaças de vitória instantânea e MetaJoules do jogo, então essas duas somem. A construção grátis na aba Trapaças é outra coisa — é nossa e funciona junto com isto.",
+                "Sostituisce i trucchi di vittoria immediata e MetaJoules del gioco, quei due spariscono. La costruzione gratuita nella scheda Trucchi è un'altra cosa: è nostra e funziona insieme a questo.",
+                "Remplace les codes de victoire immédiate et de MetaJoules du jeu, ces deux-là disparaissent. La construction gratuite de l'onglet Codes est autre chose — elle est à nous et fonctionne avec ceci.",
+                "ゲームの即時勝利と MetaJoules のチートを置き換えるので、その二つは使えなくなります。チートタブの無料建設は別物で、こちらとは併用できます。",
+                "게임의 즉시 승리와 MetaJoules 치트를 대체하므로 그 둘은 사라집니다. 치트 탭의 무료 건설은 다른 것이며, 이것과 함께 작동합니다.",
+                "替换游戏自带的立即胜利和 MetaJoules 作弊器，这两个将不可用。作弊页里的免费建造是另一回事 — 那是我们的，可与此并用。",
+                "Заменяет читы игры на мгновенную победу и MetaJoules, эти два исчезают. Бесплатная постройка на вкладке читов — другое дело: она наша и работает вместе с этим." } },
+
+            { "alien.mp", new[]{
+                "⚠ Single player only. Spawned units are never sent over the network and will desync any multiplayer game.",
+                "⚠ Nur Einzelspieler. Gespawnte Einheiten werden nie übertragen und desynchronisieren jede Mehrspielerpartie.",
+                "⚠ Solo un jugador. Las unidades generadas nunca se envían por red y desincronizan cualquier partida multijugador.",
+                "⚠ Apenas um jogador. Unidades geradas nunca são enviadas pela rede e dessincronizam qualquer partida multijogador.",
+                "⚠ Solo giocatore singolo. Le unità create non vengono mai inviate in rete e desincronizzano ogni partita multigiocatore.",
+                "⚠ Solo. Les unités créées ne sont jamais transmises sur le réseau et désynchronisent toute partie multijoueur.",
+                "⚠ シングルプレイ専用。生成されたユニットは通信されず、マルチプレイは必ず同期が崩れます。",
+                "⚠ 싱글 플레이 전용. 생성된 유닛은 네트워크로 전송되지 않아 멀티플레이가 반드시 깨집니다.",
+                "⚠ 仅限单人游戏。生成的单位不会通过网络同步，一定会导致多人游戏失步。",
+                "⚠ Только одиночная игра. Созданные юниты не передаются по сети и рассинхронизируют любую сетевую партию." } },
             { "exp.speed", new[]{
                 "Speed up unit movement", "Einheiten schneller bewegen", "Acelerar el movimiento de las unidades", "Acelerar o movimento das unidades", "Accelera il movimento delle unità", "Accélérer le déplacement des unités", "ユニットの移動を速くする", "유닛 이동 속도 높이기", "加快单位移动", "Ускорить передвижение юнитов" } },
             { "exp.speed.factor", new[]{
@@ -1228,12 +1348,93 @@ namespace MetalFatiguePatcher
                 "Always all players", "Immer alle Spieler", "Siempre todos los jugadores", "Sempre todos os jogadores", "Sempre tutti i giocatori", "Toujours tous les joueurs", "常に全プレイヤー", "항상 모든 플레이어", "始终对所有玩家", "Всегда для всех игроков" } },
             { "grp.unlock", new[]{
                 "Unlock parts and superweapons of other factions", "Teile und Superwaffen anderer Fraktionen freischalten", "Desbloquear piezas y superarmas de otras facciones", "Desbloquear peças e superarmas de outras facções", "Sblocca parti e superarmi di altre fazioni", "Débloquer les pièces et superarmes d'autres factions", "他勢力のパーツとスーパーウェポンを解禁", "다른 진영의 부품과 슈퍼무기 잠금 해제", "解锁其他阵营的部件与超级武器", "Разблокировать детали и супероружие других фракций" } },
+
+            { "parts.count", new[]{
+                "{0} of {1} parts selected",
+                "{0} von {1} Teilen ausgewählt",
+                "{0} de {1} piezas seleccionadas",
+                "{0} de {1} peças selecionadas",
+                "{0} di {1} parti selezionate",
+                "{0} pièces sur {1} sélectionnées",
+                "{1} 個中 {0} 個のパーツを選択",
+                "{1}개 중 {0}개 부품 선택",
+                "已选 {0} / {1} 个部件",
+                "выбрано {0} из {1} деталей" } },
+
+            { "parts.nonesel", new[]{
+                "Nothing selected — click to choose parts",
+                "Nichts ausgewählt — zum Auswählen klicken",
+                "Nada seleccionado: haz clic para elegir piezas",
+                "Nada selecionado — clique para escolher peças",
+                "Niente selezionato: clicca per scegliere le parti",
+                "Rien de sélectionné — cliquez pour choisir des pièces",
+                "未選択 — クリックしてパーツを選びます",
+                "선택 없음 — 클릭하여 부품 선택",
+                "未选择 — 点击选择部件",
+                "Ничего не выбрано — нажмите, чтобы выбрать" } },
+
+            { "parts.choose", new[]{
+                "Choose parts…",
+                "Teile auswählen…",
+                "Elegir piezas…",
+                "Escolher peças…",
+                "Scegli le parti…",
+                "Choisir des pièces…",
+                "パーツを選ぶ…",
+                "부품 선택…",
+                "选择部件…",
+                "Выбрать детали…" } },
+
+            { "btn.all", new[]{
+                "All",
+                "Alle",
+                "Todas",
+                "Todas",
+                "Tutte",
+                "Toutes",
+                "すべて",
+                "전체",
+                "全部",
+                "Все" } },
+
+            { "btn.none", new[]{
+                "None",
+                "Keine",
+                "Ninguna",
+                "Nenhuma",
+                "Nessuna",
+                "Aucune",
+                "なし",
+                "없음",
+                "无",
+                "Ни одной" } },
+
+            { "btn.close", new[]{
+                "Close",
+                "Schließen",
+                "Cerrar",
+                "Fechar",
+                "Chiudi",
+                "Fermer",
+                "閉じる",
+                "닫기",
+                "关闭",
+                "Закрыть" } },
             { "scope.me", new[]{
                 "Me only", "Nur ich", "Solo yo", "Só eu", "Solo io", "Moi seulement", "自分のみ", "나만", "仅自己", "Только я" } },
             { "scope.all", new[]{
                 "All players (incl. AI)", "Alle Spieler (inkl. KI)", "Todos los jugadores (incl. IA)", "Todos os jogadores (incl. IA)", "Tutti i giocatori (incl. IA)", "Tous les joueurs (IA incl.)", "全プレイヤー（AI含む）", "모든 플레이어(AI 포함)", "所有玩家（含 AI）", "Все игроки (вкл. ИИ)" } },
-            { "scope.note", new[]{
-                "The scope above applies to Free building and Instant build. (No fog only ever affects your own view.)", "Die Auswahl oben gilt für Freies Bauen und Sofortbau. (Kein Nebel betrifft immer nur deine eigene Sicht.)", "El ámbito de arriba se aplica a Construcción gratis y Construcción instantánea. (Sin niebla solo afecta a tu propia vista.)", "O escopo acima se aplica a Construção grátis e Construção instantânea. (Sem névoa só afeta a sua própria visão.)", "L'ambito sopra vale per Costruzione gratuita e Costruzione istantanea. (Nessuna nebbia riguarda solo la tua visuale.)", "La portée ci-dessus s'applique à Construction gratuite et Construction instantanée. (Sans brouillard n'affecte que votre propre vue.)", "上記の範囲は「無料建設」と「即時建設」に適用されます。（霧なしは自分の視界のみに影響します。）", "위 범위는 무료 건설과 즉시 건설에 적용됩니다. (안개 제거는 항상 자신의 시야에만 영향을 줍니다.)", "上面的范围适用于免费建造和即时建造。（无战争迷雾仅影响你自己的视野。）", "Область выше относится к бесплатному и мгновенному строительству. (Без тумана влияет только на ваш обзор.)" } },
+            { "cheat.fogNote", new[]{
+                "No fog of war lifts your own fog only - the AI still has to scout.",
+                "Kein Nebel des Krieges hebt nur deinen eigenen Nebel - die KI muss weiter aufklären.",
+                "Sin niebla de guerra solo levanta tu propia niebla; la IA sigue teniendo que explorar.",
+                "Sem névoa de guerra levanta apenas a sua névoa; a IA continua tendo que explorar.",
+                "Nessuna nebbia di guerra dirada solo la tua nebbia: l'IA deve ancora esplorare.",
+                "Sans brouillard de guerre ne lève que le vôtre : l'IA doit toujours explorer.",
+                "「戦場の霧なし」は自分の霧だけを晴らします。AI は偵察が必要なままです。",
+                "전장의 안개 제거는 자신의 안개만 걷습니다. AI는 여전히 정찰해야 합니다.",
+                "无战争迷雾只驱散你自己的迷雾，AI 仍需侦察。",
+                "Без тумана войны снимает только ваш туман - ИИ по-прежнему должен разведывать." } },
             { "cheat.fog", new[]{
                 "No fog of war", "Kein Nebel des Krieges", "Sin niebla de guerra", "Sem névoa de guerra", "Nessuna nebbia di guerra", "Sans brouillard de guerre", "戦場の霧なし", "전장의 안개 제거", "无战争迷雾", "Без тумана войны" } },
             { "cheat.build", new[]{

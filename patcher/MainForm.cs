@@ -31,7 +31,8 @@ namespace MetalFatiguePatcher
         RadioButton _prof2x, _prof4x, _prof8x, _profUnleashed;
         Label _profDesc, _bannerTitle, _bannerSub, _exeLabel, _compatLabel, _credits, _svStatus, _infoLegacy;
         Label _infoBuild, _infoVariant, _infoInstalled;   // exe read-out area
-        LinkLabel _contactLink, _licenseLink, _reportLink;
+        LinkLabel _contactLink, _licenseLink, _reportLink, _feedbackLink;
+        Label _bannerVersion;                 // the version tag; the feedback link aligns to it
         PatchData.Installed _lastInstalled;                // what the current exe carries (for the read-out)
         string _reportKind;                                // "version" | "language" | null — drives the report link
 
@@ -57,8 +58,9 @@ namespace MetalFatiguePatcher
         TabControl _tabs;
         TabPage _tabPatch, _tabCheats, _tabExperimental, _tabMusic;
         GroupBox _cheatGroup, _globalGroup, _unlockGroup;
-        Label _scopeNote, _unlockNote, _partsForLabel, _crewsNote;
-        RadioButton _scopePlayer, _scopeAll;
+        Label _fogNote, _unlockNote, _partsForLabel, _crewsNote;
+        Panel _fbRow, _tbRow;                                   // one per radio pair: WinForms groups radios by parent
+        RadioButton _fbScopeMe, _fbScopeAll, _tbScopeMe, _tbScopeAll;
         RadioButton _partsScopePlayer, _partsScopeAll;
         CheckBox _cheatFog, _cheatBuild, _cheatTurbo, _cheatCrews;
         TreeView _unlockTree;
@@ -73,17 +75,25 @@ namespace MetalFatiguePatcher
         GameVariant.Match _variantMatch;   // last detection result (for the exe-info panel / report)
         string _iconsPath;                 // the exe path our current icon/variant state reflects
         readonly System.Collections.Generic.HashSet<string> _collapsed = new System.Collections.Generic.HashSet<string>();
-        Panel _unlockOverlay;                 // full-tab overlay the list pops into on hover
-        System.Windows.Forms.Timer _hoverTimer;
+        Form _partsDlg;                       // modal picker; both unlock views live in it
+        Panel _partsStrip;                    // preview of the picked parts, shown in the frame
+        Label _partsSummary, _partsDlgCount;
+        readonly System.Collections.Generic.List<Image> _partsPreview =
+            new System.Collections.Generic.List<Image>();
+        Button _partsChoose, _partsAll, _partsNone, _partsDlgClose;
         System.Windows.Forms.Timer _pulseTimer;
-        bool _listBig;
         Label _svFogNote, _fogSvNote;   // "disabled because ..." notes for the fog/shared-vision clash
         bool _fogSvSyncing;
         bool _crewSyncing;    // guards the fog <-> shared-vision mutual-exclusion cascade
 
         // --- experimental tab (features that change core behaviour and may break things) ---
-        GroupBox _expWarnGroup, _expSpeedGroup, _expSoonGroup;
-        Label _expWarn, _expSoon;
+        GroupBox _expWarnGroup, _expSpeedGroup, _alienGroup;
+        Label _expWarn;
+        CheckBox _alienOn;
+        Label _alienNote, _alienMp, _alienFirst, _alienRule;
+        Label[] _alienRows;
+        readonly System.Collections.Generic.List<Control> _alienGlyphs =
+            new System.Collections.Generic.List<Control>();
         CheckBox _expSpeed;
         TrackBar _expSpeedBar;
         Label _expSpeedFactorLbl, _expSpeedValue, _expSpeedExample, _expSpeedForLbl, _expSpeedNote;
@@ -209,6 +219,11 @@ namespace MetalFatiguePatcher
             // bottom edge, and the music frame is exactly that. Left alone, a short window clips the
             // transport row away with no scrollbar to reach it, so state the floor outright.
             _tabMusic.AutoScrollMinSize = new Size(0, 400);
+
+            // Same trap on the Cheats tab since the movement-speed group moved in: the parts frame
+            // is anchored to the bottom, so AutoScroll does not count it and the tab would simply
+            // cut it off with no scrollbar to reach it.
+            _tabCheats.AutoScrollMinSize = new Size(0, 612);
             // The banner theme follows the active tab: blue (Patch), orange (Cheats),
             // Neuropa faction green (Experimental).
             _tabs.SelectedIndexChanged += (s, e) => SetBannerTheme(
@@ -461,33 +476,55 @@ namespace MetalFatiguePatcher
         {
             var orange = Color.FromArgb(186, 106, 16);
 
-            // Scope: player only vs everyone (AI included). Parts/superweapon unlocks are always
-            // local-player only, so the scope governs the resource/build cheats.
-            // Scoped cheats — the "me only / all players" switch governs exactly these.
-            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 90), ForeColor = orange,
+            // Scope is per cheat rather than shared. Free building and instant build each already
+            // have both forms in the EXE - an all-players stub and a cave that checks the owner -
+            // so letting them differ costs nothing in the patch itself. It is worth having: the
+            // all-players form of free building also stubs NeedManPower, which is not the predicate
+            // it looks like but the routine that writes an object's PowerStatus, and the AI's build
+            // selector only counts a building of its own once that field reads 3.
+            // Radios, not a dropdown: one click, and it matches the movement-speed and parts
+            // sections. Each pair needs its own container, because WinForms groups radio buttons
+            // by parent and two pairs in one box would behave as one.
+            _cheatGroup = new GroupBox { Location = new Point(12, 10), Size = new Size(708, 124),
                                          Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            _scopePlayer = new RadioButton { Checked = true, Location = new Point(14, 20), AutoSize = true };
-            _scopeAll = new RadioButton { Location = new Point(120, 20), AutoSize = true };
-            _cheatBuild = new CheckBox { Location = new Point(14, 48), AutoSize = true };
-            _cheatTurbo = new CheckBox { Location = new Point(160, 48), AutoSize = true };
-            // Fog sits on the right, right next to its "disabled because shared vision is on" note.
-            _cheatFog   = new CheckBox { Location = new Point(300, 48), AutoSize = true };
+
+            _fbRow = new Panel { Location = new Point(10, 18), Size = new Size(688, 26) };
+            _cheatBuild = new CheckBox { Location = new Point(4, 4), AutoSize = true };
+            _fbScopeMe  = new RadioButton { Checked = true, Location = new Point(196, 4), AutoSize = true };
+            _fbScopeAll = new RadioButton { Location = new Point(320, 4), AutoSize = true };
+            _fbRow.Controls.AddRange(new Control[] { _cheatBuild, _fbScopeMe, _fbScopeAll });
+
+            _tbRow = new Panel { Location = new Point(10, 46), Size = new Size(688, 26) };
+            _cheatTurbo = new CheckBox { Location = new Point(4, 4), AutoSize = true };
+            _tbScopeMe  = new RadioButton { Checked = true, Location = new Point(196, 4), AutoSize = true };
+            _tbScopeAll = new RadioButton { Location = new Point(320, 4), AutoSize = true };
+            _tbRow.Controls.AddRange(new Control[] { _cheatTurbo, _tbScopeMe, _tbScopeAll });
+
+            // Fog needs no scope: since 1.5.0 the payload writes the local player's visibility and
+            // the display slot, and leaves the other eight alone. Before that it called the
+            // engine's own reveal, which floods every player - so ticking it used to hand the AI a
+            // free map. The note under the row says which of the two you are getting.
+            _cheatFog   = new CheckBox { Location = new Point(14, 78), AutoSize = true };
             _fogSvNote = new Label
             {
-                Location = new Point(470, 50), AutoSize = true, ForeColor = Color.FromArgb(176, 108, 12),
+                Location = new Point(200, 80), AutoSize = true, ForeColor = Color.FromArgb(176, 108, 12),
                 Font = new Font("Segoe UI", 8f), Visible = false
             };
-            _scopeNote = new Label
+            _fogNote = new Label
             {
-                Location = new Point(14, 68), Size = new Size(690, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
+                Location = new Point(14, 100), Size = new Size(690, 16), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f),
                 Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
             _cheatFog.CheckedChanged += (s, e) => UpdateSharedVisionState();
-            _cheatGroup.Controls.AddRange(new Control[] { _scopePlayer, _scopeAll, _scopeNote, _cheatFog, _cheatBuild, _cheatTurbo, _fogSvNote });
+            // A scope means nothing while its cheat is off.
+            _cheatBuild.CheckedChanged += (s, e) => UpdateCheatScopeState();
+            _cheatTurbo.CheckedChanged += (s, e) => UpdateCheatScopeState();
+            _cheatGroup.Controls.AddRange(new Control[] { _fbRow, _tbRow, _cheatFog, _fogSvNote, _fogNote });
             tab.Controls.Add(_cheatGroup);
+            UpdateCheatScopeState();
 
             // Always-global cheats — no scope, so they live in their own little section.
-            _globalGroup = new GroupBox { Location = new Point(12, 106), Size = new Size(708, 62), ForeColor = orange,
+            _globalGroup = new GroupBox { Location = new Point(12, 140), Size = new Size(708, 62),
                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             _cheatCrews = new CheckBox { Location = new Point(14, 20), AutoSize = true };
             _cheatCrews.CheckedChanged += (s, e) => UpdateCrewLimitState();
@@ -506,67 +543,153 @@ namespace MetalFatiguePatcher
             // Unlock tree: combot parts (by faction) + superweapons, each a checkable node.
             // Takes every pixel the tab has left over, in both directions: this is the one section
             // where more room means more parts on screen at once.
-            _unlockGroup = new GroupBox { Location = new Point(12, 174), Size = new Size(708, 200), ForeColor = orange,
-                                          Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right,
-                                          MinimumSize = new Size(0, 200) };
+            // --- movement speed -------------------------------------------------------------------
+            // Lived on the Experimental tab from 1.2.0 until 1.5.0, which is where the _exp field
+            // names and the exp.speed language keys come from. It has been in the wild long enough
+            // to stop being experimental, so it sits with the other cheats now; the names stayed as
+            // they were rather than churn a dozen references for a cosmetic prefix.
+            _expSpeedGroup = new GroupBox { Location = new Point(12, 208), Size = new Size(708, 186),
+                                            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _expSpeed = new CheckBox { Location = new Point(14, 22), AutoSize = true };
+
+            _expSpeedFactorLbl = new Label { Location = new Point(34, 62), AutoSize = true, ForeColor = Color.DimGray };
+            // Discrete notches rather than a free slider: each stop is a factor that can be reasoned about,
+            // and it maps 1:1 to the float baked into the patch.
+            _expSpeedBar = new TrackBar
+            {
+                Location = new Point(96, 54), Size = new Size(300, 45),
+                Minimum = 0, Maximum = PatchData.SpeedFactors.Length - 1,
+                TickFrequency = 1, SmallChange = 1, LargeChange = 1, Value = 1
+            };
+            _expSpeedValue = new Label
+            {
+                Location = new Point(406, 60), Size = new Size(70, 26), ForeColor = Color.FromArgb(58, 62, 70),
+                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
+            };
+            _expSpeedExample = new Label
+            {
+                Location = new Point(482, 64), Size = new Size(216, 30), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _expSpeedBar.ValueChanged += (s, e) => UpdateSpeedLabels();
+
+            _expSpeedForLbl = new Label { Location = new Point(34, 112), AutoSize = true, ForeColor = Color.DimGray };
+            _expSpeedPlayer = new RadioButton { Checked = true, Location = new Point(80, 110), AutoSize = true };
+            _expSpeedAll = new RadioButton { Location = new Point(180, 110), AutoSize = true };
+
+            _expSpeedNote = new Label
+            {
+                Location = new Point(14, 140), Size = new Size(684, 40), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+
+            // The whole feature is off until it's ticked, so the knobs follow the checkbox.
+            _expSpeed.CheckedChanged += (s, e) => UpdateSpeedEnabled();
+
+            _expSpeedGroup.Controls.AddRange(new Control[]
+            {
+                _expSpeed, _expSpeedFactorLbl, _expSpeedBar, _expSpeedValue, _expSpeedExample,
+                _expSpeedForLbl, _expSpeedPlayer, _expSpeedAll, _expSpeedNote
+            });
+            tab.Controls.Add(_expSpeedGroup);
+
+            // The frame stays small and shows what the picker is for: a strip of the real part icons
+            // out of the player's own install, plus a count. Fifty-one toggles in place stopped being
+            // workable once this tab had to scroll, and the old hover pop-out was anchored to the tab,
+            // so it drifted away from its own frame as soon as the tab scrolled under it. The picker is
+            // a real window now; the strip is what makes it obvious what that window will contain.
+            _unlockGroup = new GroupBox { Location = new Point(12, 402), Size = new Size(708, 176),
+                                          Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
             // Parts get their own scope: the AI does use foreign parts (confirmed in testing), so
             // "all players" is a real option here, separate from the resource-cheat scope above.
             _partsForLabel = new Label { Location = new Point(14, 22), AutoSize = true, ForeColor = Color.DimGray };
             _partsScopePlayer = new RadioButton { Checked = true, Location = new Point(48, 20), AutoSize = true };
             _partsScopeAll = new RadioButton { Location = new Point(140, 20), AutoSize = true };
-            _unlockTree = new TreeView
+
+            // All / None sit in the frame on purpose. "Unlock everything" is what most people want,
+            // and it should not cost a trip through a dialog to get it.
+            _partsAll = new Button { Location = new Point(500, 18), Size = new Size(92, 24),
+                                     Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _partsNone = new Button { Location = new Point(598, 18), Size = new Size(92, 24),
+                                      Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _partsAll.Click += (s2, e2) => SetAllParts(true);
+            _partsNone.Click += (s2, e2) => SetAllParts(false);
+
+            // Owner-drawn, and deliberately NOT the picker's dark tiles: same icons, different
+            // presentation, so the frame reads as "what you picked" and the window as "what there is".
+            // A dark empty box looked like something had failed to load; with nothing picked the area
+            // carries a sentence instead.
+            _partsStrip = new Panel
             {
-                Location = new Point(14, 46), Size = new Size(680, 86),
-                CheckBoxes = true, ShowRootLines = true, HideSelection = true
+                Location = new Point(14, 50), Size = new Size(680, 62), Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
+            _partsStrip.Click += (s2, e2) => OpenPartsDialog();
+            _partsStrip.Paint += (s2, e2) => PaintPartsStrip(e2.Graphics);
+            _partsSummary = new Label
+            {
+                Location = new Point(14, 118), Size = new Size(556, 16), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f), Cursor = Cursors.Hand,
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _partsSummary.Click += (s2, e2) => OpenPartsDialog();
+            _partsChoose = new Button { Location = new Point(578, 114), Size = new Size(112, 24),
+                                        Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            _partsChoose.Click += (s2, e2) => OpenPartsDialog();
+
+            _unlockNote = new Label
+            {
+                Location = new Point(14, 138), Size = new Size(680, 32), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _unlockGroup.Controls.AddRange(new Control[] { _partsForLabel, _partsScopePlayer, _partsScopeAll,
+                                                           _partsAll, _partsNone, _partsStrip, _partsSummary,
+                                                           _partsChoose, _unlockNote });
+            tab.Controls.Add(_unlockGroup);
+
+            // The picker. Both views live in it permanently, so nothing is reparented when it opens and
+            // every toggle keeps the handlers it was built with.
+            _unlockTree = new TreeView { CheckBoxes = true, ShowRootLines = true, HideSelection = true };
             BuildUnlockTree();
-            _unlockTree.AfterCheck += (s, e) =>
+            _unlockTree.AfterCheck += (s2, e2) =>
             {
                 if (_treeCascading) return;
                 _treeCascading = true;
-                foreach (TreeNode c in e.Node.Nodes) c.Checked = e.Node.Checked;
-                if (e.Node.Tag is uint addr) SyncSharedDescriptor(addr, e.Node.Checked, e.Node);
+                foreach (TreeNode c in e2.Node.Nodes) c.Checked = e2.Node.Checked;
+                if (e2.Node.Tag is uint addr) SyncSharedDescriptor(addr, e2.Node.Checked, e2.Node);
                 _treeCascading = false;
             };
-            // Two things worth stating up front (both are "won't fix", just expectations):
-            // Tall enough for the longest translation: the two sentences can wrap to ~4 lines in
-            // German/Spanish/etc. A fixed 2-line box clipped the second (alien) sentence there.
-            _unlockNote = new Label
-            {
-                Location = new Point(14, 136), Size = new Size(680, 62), ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8f)
-            };
-            // Icon section-list occupies the same spot as the tree; hidden until icons load.
             _unlockList = new FlowLayoutPanel
             {
-                Location = new Point(14, 44), Size = new Size(680, 124),
                 FlowDirection = FlowDirection.TopDown, WrapContents = false,
                 AutoScroll = true, Visible = false, BackColor = Color.FromArgb(30, 30, 30)
             };
-            _unlockGroup.Controls.AddRange(new Control[] { _partsForLabel, _partsScopePlayer, _partsScopeAll, _unlockTree, _unlockList, _unlockNote });
-            tab.Controls.Add(_unlockGroup);
 
-            // Hover-to-enlarge: the cramped list pops into this full-tab overlay while the mouse is
-            // over it, and snaps back when the cursor leaves (checked by a small timer, so moving
-            // across child toggles doesn't count as "leaving").
-            _unlockOverlay = new Panel
+            _partsDlgCount = new Label { AutoSize = true, ForeColor = Color.DimGray, Font = new Font("Segoe UI", 8.5f) };
+            _partsDlgClose = new Button { Size = new Size(110, 26), DialogResult = DialogResult.OK };
+            _partsDlg = new Form
             {
-                Location = new Point(8, 6), Size = new Size(714, 358), Visible = false,
-                BackColor = Color.FromArgb(26, 26, 30), BorderStyle = BorderStyle.FixedSingle
+                FormBorderStyle = FormBorderStyle.Sizable, ShowInTaskbar = false,
+                MinimizeBox = false, StartPosition = FormStartPosition.CenterParent,
+                ClientSize = new Size(760, 520), MinimumSize = new Size(560, 360)
             };
-            _unlockOverlay.Anchor = AnchorStyles.Top | AnchorStyles.Bottom | AnchorStyles.Left | AnchorStyles.Right;
-            tab.Controls.Add(_unlockOverlay);
+            _partsDlg.Controls.AddRange(new Control[] { _unlockTree, _unlockList, _partsDlgCount, _partsDlgClose });
+            _partsDlg.AcceptButton = _partsDlgClose;
+            _partsDlg.CancelButton = _partsDlgClose;      // Esc closes; the selection is already applied
+            // Really closing it would dispose the toggles along with it, so hide instead.
+            _partsDlg.FormClosing += (s2, e2) =>
+            {
+                if (e2.CloseReason == CloseReason.UserClosing) { e2.Cancel = true; _partsDlg.Hide(); }
+            };
+            _partsDlg.Resize += (s2, e2) => { LayoutUnlockArea(); FitRows(); };
+
 
             // One place decides the geometry of the unlock area, and it runs whenever the frame
             // changes size. The rows re-flow from the list's own width, so widening the window turns
             // straight into more icon columns.
-            _unlockGroup.Resize += (s, e) => { LayoutUnlockArea(); FitRows(); };
+            _unlockGroup.Resize += (s, e) => LayoutPartsFrame();
             _unlockList.SizeChanged += (s, e) => FitRows();
-            _hoverTimer = new System.Windows.Forms.Timer { Interval = 160 };
-            _hoverTimer.Tick += (s, e) =>
-            {
-                if (!_unlockOverlay.RectangleToScreen(_unlockOverlay.ClientRectangle).Contains(Cursor.Position)) HideBig();
-            };
-            _unlockList.MouseEnter += (s, e) => ShowBig();
 
             // Gentle pulse of the selected toggles' borders.
             _pulseTimer = new System.Windows.Forms.Timer { Interval = 33 };
@@ -1047,61 +1170,78 @@ namespace MetalFatiguePatcher
             _expWarnGroup.Controls.Add(_expWarn);
             tab.Controls.Add(_expWarnGroup);
 
-            // --- movement speed ---------------------------------------------------------------
-            _expSpeedGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 186), ForeColor = green,
-                                            Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            _expSpeed = new CheckBox { Location = new Point(14, 22), AutoSize = true };
 
-            _expSpeedFactorLbl = new Label { Location = new Point(34, 62), AutoSize = true, ForeColor = Color.DimGray };
-            // Discrete notches rather than a free slider: each stop is a factor that can be reasoned about,
-            // and it maps 1:1 to the float baked into the patch.
-            _expSpeedBar = new TrackBar
-            {
-                Location = new Point(96, 54), Size = new Size(300, 45),
-                Minimum = 0, Maximum = PatchData.SpeedFactors.Length - 1,
-                TickFrequency = 1, SmallChange = 1, LargeChange = 1, Value = 1
-            };
-            _expSpeedValue = new Label
-            {
-                Location = new Point(406, 60), Size = new Size(70, 26), ForeColor = green,
-                Font = new Font("Segoe UI", 12f, FontStyle.Bold)
-            };
-            _expSpeedExample = new Label
-            {
-                Location = new Point(482, 64), Size = new Size(216, 30), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
-            };
-            _expSpeedBar.ValueChanged += (s, e) => UpdateSpeedLabels();
+            // Alternative cheats. The control sequence is the awkward part to explain: Esc, three
+            // Shift+C, then a mouse button together with L or M. Written out that is a paragraph, and
+            // it would have to survive ten translations inside a note line we only just widened. The
+            // glyph strip carries the sequence instead - a picture of a key needs no translation -
+            // and the text below is left with two short sentences that wrap comfortably.
+            _alienGroup = new GroupBox { Location = new Point(12, 102), Size = new Size(708, 352), ForeColor = green,
+                                         Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
+            _alienOn = new CheckBox { Location = new Point(14, 22), AutoSize = true };
 
-            _expSpeedForLbl = new Label { Location = new Point(34, 112), AutoSize = true, ForeColor = Color.DimGray };
-            _expSpeedPlayer = new RadioButton { Checked = true, Location = new Point(80, 110), AutoSize = true };
-            _expSpeedAll = new RadioButton { Location = new Point(180, 110), AutoSize = true };
-
-            _expSpeedNote = new Label
+            // The prelude is the same for every combination and is the step people will forget, so
+            // it gets its own line, its own sentence and a rule under it rather than being the first
+            // item of a list where it reads like one option among several.
+            int gx = 30, gy = 50;
+            gx = AddGlyph("esc", ref gx, gy);
+            gx = AddArrow("→", ref gx, gy);
+            gx = AddGlyph("shift", ref gx, gy);
+            gx = AddArrow("+", ref gx, gy);
+            gx = AddGlyph("c", ref gx, gy);
+            gx = AddArrow("× 3", ref gx, gy);
+            _alienFirst = new Label
             {
-                Location = new Point(14, 140), Size = new Size(684, 40), ForeColor = Color.DimGray,
-                Font = new Font("Segoe UI", 8f), Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                Location = new Point(gx + 8, gy + 4), Size = new Size(500, 16),
+                ForeColor = Color.FromArgb(58, 62, 70), Font = new Font("Segoe UI", 8f, FontStyle.Bold),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _alienRule = new Label
+            {
+                Location = new Point(30, 80), Size = new Size(664, 1),
+                BackColor = Color.FromArgb(214, 217, 223),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
 
-            // The whole feature is off until it's ticked, so the knobs follow the checkbox.
-            _expSpeed.CheckedChanged += (s, e) => UpdateSpeedEnabled();
-
-            _expSpeedGroup.Controls.AddRange(new Control[]
+            // Then one row per combination. Six rows rather than a paragraph: the mapping is a table,
+            // and drawn as a table nobody has to hold three variables in their head to read it. Only
+            // the effect column is translated - the glyphs carry the input, which is why the rows
+            // stay the same width in every language. The extra gap after the third row separates the
+            // two keys, so the block reads as "L does these three, M does the same three".
+            _alienRows = new Label[6];
+            string[] keys = { "l", "l", "l", "m", "m", "m" };
+            string[] mice = { "mouse0", "mouse1", "mouse2", "mouse0", "mouse1", "mouse2" };
+            for (int i = 0; i < 6; i++)
             {
-                _expSpeed, _expSpeedFactorLbl, _expSpeedBar, _expSpeedValue, _expSpeedExample,
-                _expSpeedForLbl, _expSpeedPlayer, _expSpeedAll, _expSpeedNote
-            });
-            tab.Controls.Add(_expSpeedGroup);
+                int ry = 96 + i * 28 + (i >= 3 ? 14 : 0), rx = 30;
+                AddGlyph(mice[i], ref rx, ry);
+                AddArrow("+", ref rx, ry);
+                AddGlyph(keys[i], ref rx, ry);
+                _alienRows[i] = new Label
+                {
+                    Location = new Point(rx + 14, ry + 4), Size = new Size(556, 16), ForeColor = Color.DimGray,
+                    Font = new Font("Segoe UI", 8f),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+            }
 
-            // Slim footer: more experimental features are expected here later.
-            _expSoonGroup = new GroupBox { Location = new Point(12, 296), Size = new Size(708, 62), ForeColor = green,
-                                           Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right };
-            _expSoon = new Label
+            _alienNote = new Label
             {
-                Location = new Point(14, 24), Size = new Size(684, 30), ForeColor = Color.DimGray
+                Location = new Point(30, 288), Size = new Size(664, 32), ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
             };
-            _expSoonGroup.Controls.Add(_expSoon);
-            tab.Controls.Add(_expSoonGroup);
+            // Amber, like the other mutual-exclusion notes: this one is not a risk but a certainty.
+            _alienMp = new Label
+            {
+                Location = new Point(30, 324), Size = new Size(664, 16), ForeColor = Color.FromArgb(176, 108, 12),
+                Font = new Font("Segoe UI", 8f),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            _alienGroup.Controls.AddRange(new Control[] { _alienOn, _alienFirst, _alienRule, _alienNote, _alienMp });
+            _alienGroup.Controls.AddRange(_alienRows);
+            foreach (var g in _alienGlyphs) _alienGroup.Controls.Add(g);
+            tab.Controls.Add(_alienGroup);
 
             UpdateSpeedEnabled();
         }
@@ -1258,40 +1398,168 @@ namespace MetalFatiguePatcher
         /// two lines in the CJK languages and three in most of the rest, and the flat 26px the icon
         /// mode used to reserve cut the last line off in seven of the ten.
         /// </summary>
+
+
+        /// <summary>Lay the picker's contents out for whatever size the dialog currently has.</summary>
         void LayoutUnlockArea()
         {
-            if (_unlockGroup == null || _unlockNote == null || _unlockTree == null || _unlockList == null) return;
+            if (_partsDlg == null || _unlockTree == null || _unlockList == null) return;
+            int w = _partsDlg.ClientSize.Width, h = _partsDlg.ClientSize.Height;
+            int viewH = Math.Max(120, h - 8 - 44);
+            if (_iconToggles != null) _unlockList.SetBounds(8, 8, w - 16, viewH);
+            else _unlockTree.SetBounds(8, 8, w - 16, viewH);
+            _partsDlgCount.Location = new Point(10, h - 26);
+            _partsDlgClose.Location = new Point(w - 10 - _partsDlgClose.Width, h - 34);
+        }
 
+        /// <summary>The frame's own geometry: the strip and the note follow its width.</summary>
+        void LayoutPartsFrame()
+        {
+            if (_unlockGroup == null || _partsStrip == null || _unlockNote == null) return;
             int w = Math.Max(120, _unlockGroup.ClientSize.Width - 28);
-            // _iconToggles, not _unlockList.Visible: a control reports Visible == false for as long as
-            // the form it lives on has not been shown, so during construction the getter would answer
-            // "tree" no matter what was just assigned, and the note would keep the tree's height.
-            bool iconMode = _iconToggles != null;
-
-            // Floor so an empty Text during construction cannot collapse the row, ceiling so a long
-            // translation cannot eat the list it is describing.
+            _partsStrip.Width = w;
+            // Measured, not reserved: the same two sentences run to three lines in French and Russian
+            // and two in the CJK languages, and a fixed height cut the last line off in seven of the ten.
             int noteH = TextRenderer.MeasureText(_unlockNote.Text ?? "", _unlockNote.Font,
                                                  new Size(w, 0), TextFormatFlags.WordBreak).Height + 2;
-            noteH = Math.Max(26, Math.Min(66, noteH));
-            int noteTop = Math.Max(80, _unlockGroup.ClientSize.Height - noteH - 8);
-            _unlockNote.SetBounds(14, noteTop, w, noteH);
+            noteH = Math.Max(32, Math.Min(66, noteH));
+            _unlockNote.SetBounds(14, 142, w, noteH);
+            _unlockGroup.Height = _unlockNote.Bottom + 12;
+        }
 
-            int top = iconMode ? 44 : 46;
-            int h = Math.Max(60, noteTop - 6 - top);
+        /// <summary>Show the picker. What is ticked applies as it is ticked, so there is nothing to
+        /// confirm and Esc is a perfectly good way out.</summary>
+        void OpenPartsDialog()
+        {
+            if (_partsDlg == null || !_unlockGroup.Enabled) return;
+            _partsDlg.Text = Lang.T("grp.unlock");
+            _partsDlgClose.Text = Lang.T("btn.close");
+            LayoutUnlockArea();
+            FitRows();
+            UpdatePartsSummary();
+            _partsDlg.ShowDialog(this);
+            UpdatePartsSummary();
+        }
 
-            // While the list is popped out it belongs to the overlay; resizing it here would drag it
-            // back into the frame's coordinates mid-hover.
-            if (iconMode && !_listBig) _unlockList.SetBounds(14, top, w, h);
-            else if (!iconMode) _unlockTree.SetBounds(14, top, w, h);
+        /// <summary>Tick or untick everything straight from the frame, without opening the picker.</summary>
+        void SetAllParts(bool on)
+        {
+            if (_iconToggles != null) foreach (var cb in _iconToggles) cb.Checked = on;
+            else if (_unlockTree != null) foreach (TreeNode top in _unlockTree.Nodes) SetTreeChecked(top, on);
+            UpdatePartsSummary();
+        }
+
+        static void SetTreeChecked(TreeNode n, bool on)
+        {
+            n.Checked = on;
+            foreach (TreeNode c in n.Nodes) SetTreeChecked(c, on);
+        }
+
+        /// <summary>Count what is picked and preview it. The strip shows the real icons of the parts
+        /// actually selected, so the frame doubles as the feedback the dialog would otherwise owe.</summary>
+        void UpdatePartsSummary()
+        {
+            if (_partsSummary == null || _partsStrip == null) return;
+
+            var picked = new System.Collections.Generic.List<Image>();
+            int total = 0, sel = 0;
+            if (_iconToggles != null)
+            {
+                total = _iconToggles.Count;
+                foreach (var cb in _iconToggles)
+                    if (cb.Checked)
+                    {
+                        sel++;
+                        var it = cb as IconToggle;
+                        if (it != null && it.Icon != null) picked.Add(it.Icon);
+                    }
+            }
+            else if (_unlockTree != null)
+            {
+                CountTree(_unlockTree.Nodes, ref total, ref sel);
+            }
+
+            _partsSummary.Text = sel == 0 ? "" : string.Format(Lang.T("parts.count"), sel, total);
+            if (_partsDlgCount != null) _partsDlgCount.Text = _partsSummary.Text;
+
+            _partsPreview.Clear();
+            _partsPreview.AddRange(picked);
+            _partsStrip.Invalidate();
         }
 
         /// <summary>
-        /// Whether the icon list still needs the hover pop-out. On a window with room to spare the
-        /// list is already as tall as the overlay would make it, so popping out would only cover the
-        /// rest of the tab for no gain. On a laptop-sized window it is still the only way to see more
-        /// than a row or two at a time.
+        /// Draw every picked icon into the strip, shrinking until they all fit. The tile size walks
+        /// down a ladder and the first rung where rows x columns covers the count wins, so twelve parts
+        /// stay comfortably large and all fifty-one still fit - two rows of small tiles rather than a
+        /// scrollbar, because the strip is a summary and scrolling a summary defeats it.
         /// </summary>
-        bool NeedsBigOverlay => _unlockList != null && _unlockList.Height < 240;
+        void PaintPartsStrip(Graphics g)
+        {
+            int w = _partsStrip.ClientSize.Width, h = _partsStrip.ClientSize.Height;
+
+            // The faction emblems lead the strip, always, whether anything is picked or not. They are
+            // the same emblems the picker uses as its section headers, so after the redesign this frame
+            // still looks like the place where other factions' parts live - which is the one thing a
+            // count and a button cannot say on their own.
+            int lead = 0;
+            if (_gameIcons != null)
+            {
+                foreach (var fac in PartsData.Factions)
+                {
+                    var em = _gameIcons.Emblem(fac);
+                    if (em == null) continue;
+                    int eh = 28, ew = Math.Max(8, em.Width * eh / Math.Max(1, em.Height));
+                    g.DrawImage(em, new Rectangle(lead, (h - eh) / 2, ew, eh));
+                    lead += ew + 3;
+                }
+                if (lead > 0)
+                {
+                    using (var p = new Pen(Color.FromArgb(206, 210, 217)))
+                        g.DrawLine(p, lead + 4, 5, lead + 4, h - 5);
+                    lead += 12;
+                }
+            }
+            int aw = Math.Max(40, w - lead);
+
+            if (_partsPreview.Count == 0)
+            {
+                // Nothing picked: say so here rather than leaving an empty frame.
+                TextRenderer.DrawText(g, Lang.T("parts.nonesel"), _partsSummary.Font,
+                                      new Rectangle(lead, 0, aw, h), Color.DimGray,
+                                      TextFormatFlags.VerticalCenter | TextFormatFlags.WordBreak);
+                return;
+            }
+
+            const int gap = 4;
+            int n = _partsPreview.Count, tile = 0, cols = 1;
+            foreach (int cand in new[] { 50, 44, 38, 32, 28, 24, 20, 17, 14, 12 })
+            {
+                int c = Math.Max(1, (aw + gap) / (cand + gap));
+                int r = Math.Max(1, (h + gap) / (cand + gap));
+                if (c * r >= n) { tile = cand; cols = c; break; }
+            }
+            if (tile == 0) { tile = 12; cols = Math.Max(1, (aw + gap) / (tile + gap)); }
+
+            for (int i = 0; i < n; i++)
+            {
+                int x = lead + (i % cols) * (tile + gap);
+                int y = (i / cols) * (tile + gap);
+                if (y + tile > h) break;                       // never spill past the frame
+                var cell = new Rectangle(x, y, tile, tile);
+                using (var b = new SolidBrush(Color.FromArgb(242, 243, 246))) g.FillRectangle(b, cell);
+                g.DrawImage(_partsPreview[i], cell);
+                using (var p = new Pen(Color.FromArgb(206, 210, 217))) g.DrawRectangle(p, cell);
+            }
+        }
+
+        static void CountTree(TreeNodeCollection nodes, ref int total, ref int sel)
+        {
+            foreach (TreeNode n in nodes)
+            {
+                if (n.Tag is uint) { total++; if (n.Checked) sel++; }
+                CountTree(n.Nodes, ref total, ref sel);
+            }
+        }
 
         /// <summary>Language switch / initial fill: rebuild whichever unlock view is active.</summary>
         void RebuildUnlockView()
@@ -1470,51 +1738,9 @@ namespace MetalFatiguePatcher
             });
 
             _unlockList.ResumeLayout();
-            AttachHover(_unlockList);   // hovering ANY control enlarges the list, so clicks are consistent
             FitRows();
         }
 
-        /// <summary>Wire MouseEnter -> ShowBig on every control in the list so the enlarge is
-        /// consistent no matter which part of the list the cursor approaches.</summary>
-        void AttachHover(Control c)
-        {
-            foreach (Control ch in c.Controls)
-            {
-                ch.MouseEnter += (s, e) => ShowBig();
-                AttachHover(ch);
-            }
-        }
-
-        /// <summary>Pop the list into the full-tab overlay (bigger, easier to see) while hovered.</summary>
-        void ShowBig()
-        {
-            if (_listBig || _gameIcons == null || _unlockList == null) return;
-            // Nothing to gain once the frame itself is roomy — see NeedsBigOverlay.
-            if (!NeedsBigOverlay) return;
-            _listBig = true;
-            _unlockGroup.Controls.Remove(_unlockList);
-            _unlockOverlay.Controls.Add(_unlockList);
-            _unlockList.Location = new Point(6, 6);
-            _unlockList.Size = new Size(_unlockOverlay.ClientSize.Width - 12, _unlockOverlay.ClientSize.Height - 12);
-            SetRowWidths(_unlockList.ClientSize.Width - 8);
-            _unlockOverlay.Visible = true;
-            _unlockOverlay.BringToFront();
-            _hoverTimer.Start();
-        }
-
-        /// <summary>Snap the list back into its small spot when the cursor leaves the overlay.</summary>
-        void HideBig()
-        {
-            if (!_listBig) return;
-            _listBig = false;
-            _hoverTimer.Stop();
-            _unlockOverlay.Controls.Remove(_unlockList);
-            _unlockOverlay.Visible = false;
-            _unlockGroup.Controls.Add(_unlockList);
-            LayoutUnlockArea();
-            FitRows();
-            _unlockList.BringToFront();
-        }
 
         /// <summary>Re-flow the icon rows to whatever width the list has right now.</summary>
         void FitRows()
@@ -1630,13 +1856,44 @@ namespace MetalFatiguePatcher
                 Font = new Font("Segoe UI", 7.5f), BackColor = Color.Transparent,
                 ForeColor = Color.FromArgb(200, 212, 228), AutoSize = true
             };
-            _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub, ver });
+            // Feedback sits under the flags, left of the version tag. It is the only way in: the
+            // issue templates have blank issues disabled, so without this there is no route for
+            // "this is fine but I would like X" - only for things that are broken.
+            // Bigger, white and underlined at rest. At 7.5pt in the version tag's own grey it read as
+            // one more piece of banner furniture, and the only thing marking it as a link was a hover
+            // underline nobody hovers to find.
+            _feedbackLink = new LinkLabel
+            {
+                Font = new Font("Segoe UI", 8.25f), BackColor = Color.Transparent, AutoSize = true,
+                LinkColor = Color.White, ActiveLinkColor = Color.FromArgb(255, 214, 140),
+                VisitedLinkColor = Color.White,
+                LinkBehavior = LinkBehavior.AlwaysUnderline
+            };
+            _feedbackLink.LinkClicked += (s2, e2) =>
+            {
+                // The form has a "version" field, so hand it over rather than making people read it
+                // off the window and type it back in.
+                try
+                {
+                    System.Diagnostics.Process.Start(
+                        IssuesUrl + "/new?template=feedback.yml&version=" + VersionString());
+                }
+                catch { }
+            };
+            _bannerVersion = ver;
+            _banner.Controls.AddRange(new Control[] { pic, _bannerTitle, _bannerSub, ver, _feedbackLink });
             ver.Location = new Point(_banner.Width - ver.Width - 8, _banner.Height - ver.Height - 4);
             // Anchored only after it is parented and placed, so the 8/4 margins it just got are the
             // ones that get preserved. Without this the tag keeps the position it was given once and
             // strands itself mid-banner as soon as the window is widened.
             ver.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
             ver.BringToFront();
+            _feedbackLink.Text = Lang.T("link.feedback");
+            // Bottom-aligned, not top-aligned: the link is a larger font than the version tag now,
+            // so sharing a top edge would put the two on different baselines.
+            _feedbackLink.Location = new Point(ver.Left - _feedbackLink.Width - 12, ver.Bottom - _feedbackLink.Height);
+            _feedbackLink.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            _feedbackLink.BringToFront();
             Controls.Add(_banner);
         }
 
@@ -1760,6 +2017,15 @@ namespace MetalFatiguePatcher
             _exitBtn.Text        = Lang.T("btn.exit");
             _credits.Text        = Lang.T("credits.legal") + "\n" + Lang.T("credits.thanks");
             _licenseLink.Text    = Lang.T("credits.license");
+            if (_feedbackLink != null)
+            {
+                _feedbackLink.Text = Lang.T("link.feedback");
+                // Right-aligned against the version tag, so a longer translation grows leftwards
+                // instead of sliding out from under the flags.
+                var verTag = _bannerVersion;
+                if (verTag != null)
+                    _feedbackLink.Location = new Point(verTag.Left - _feedbackLink.Width - 12, verTag.Bottom - _feedbackLink.Height);
+            }
             _sharedVision.Text   = Lang.T("sv.label");
             _tips.SetToolTip(_sharedVision, Lang.T("sv.hint"));
             // The checkbox auto-sizes per language, so park the status right after it.
@@ -1774,8 +2040,19 @@ namespace MetalFatiguePatcher
                 _tabMusic.Text        = Lang.T("tab.music");
                 _expWarnGroup.Text    = Lang.T("grp.expwarn");
                 _expWarn.Text         = Lang.T("exp.warning");
-                _expSoonGroup.Text    = Lang.T("grp.expsoon");
-                _expSoon.Text         = Lang.T("exp.soon");
+                _alienGroup.Text      = Lang.T("grp.alien");
+                _alienOn.Text         = Lang.T("alien.label");
+                // The input side is glyphs, so only the effect is translated. Type plus owner,
+                // assembled here rather than as six sentences - six sentences would be six
+                // chances for a translation to drift out of step with its row.
+                string[] kinds = { "alien.combot", "alien.tank", "alien.random",
+                                   "alien.combot", "alien.tank", "alien.random" };
+                for (int i = 0; i < _alienRows.Length; i++)
+                    _alienRows[i].Text = Lang.T(kinds[i]) + "  —  " +
+                                         Lang.T(i < 3 ? "alien.hostile" : "alien.yours");
+                _alienFirst.Text      = Lang.T("alien.first");
+                _alienNote.Text       = Lang.T("alien.note");
+                _alienMp.Text         = Lang.T("alien.mp");
                 _expSpeedGroup.Text   = Lang.T("grp.expspeed");
                 _musicGroup.Text      = Lang.T("tab.music");
                 _musicIntro.Text      = Lang.T("music.intro");
@@ -1803,9 +2080,11 @@ namespace MetalFatiguePatcher
                 _cheatGroup.Text      = Lang.T("tab.cheats");
                 _globalGroup.Text     = Lang.T("grp.globalcheats");
                 _unlockGroup.Text     = Lang.T("grp.unlock");
-                _scopePlayer.Text     = Lang.T("scope.me");
-                _scopeAll.Text        = Lang.T("scope.all");
-                _scopeNote.Text       = Lang.T("scope.note");
+                _fbScopeMe.Text       = Lang.T("scope.me");
+                _fbScopeAll.Text      = Lang.T("scope.all");
+                _tbScopeMe.Text       = Lang.T("scope.me");
+                _tbScopeAll.Text      = Lang.T("scope.all");
+                _fogNote.Text         = Lang.T("cheat.fogNote");
                 _cheatFog.Text        = Lang.T("cheat.fog");
                 // After the caption, never before: the box auto-sizes to its text, so placing
                 // the note from a Right that has not been recomputed yet parks it underneath
@@ -1820,6 +2099,11 @@ namespace MetalFatiguePatcher
                 _partsScopePlayer.Text = Lang.T("scope.me");
                 _partsScopeAll.Text   = Lang.T("scope.all");
                 _unlockNote.Text      = Lang.T("unlock.note");
+                _partsChoose.Text     = Lang.T("parts.choose");
+                _partsAll.Text        = Lang.T("btn.all");
+                _partsNone.Text       = Lang.T("btn.none");
+                UpdatePartsSummary();
+                LayoutPartsFrame();
                 _svFogNote.Text       = Lang.T("note.svfog");
                 _fogSvNote.Text       = Lang.T("note.fogsv");
                 // The parts scope radios sit after the "For:" label, which resizes per language.
@@ -2157,6 +2441,39 @@ namespace MetalFatiguePatcher
             return sb.ToString();
         }
 
+        /// <summary>One key-cap or mouse glyph in the sequence strip, vertically centred on the
+        /// key-cap row so the taller mouse symbols line up with the letters.</summary>
+        int AddGlyph(string name, ref int x, int y)
+        {
+            var img = LoadEmbedded("MetalFatiguePatcher.key_" + name + ".png");
+            int w = img != null ? img.Width : 22, h = img != null ? img.Height : 22;
+            var pb = new PictureBox
+            {
+                Image = img, Size = new Size(w, h),
+                Location = new Point(x, y + (22 - h) / 2),
+                SizeMode = PictureBoxSizeMode.AutoSize
+            };
+            _alienGlyphs.Add(pb);
+            x += w + 4;
+            return x;
+        }
+
+        /// <summary>The connective tissue between glyphs - an arrow, a plus, a repeat count.
+        /// Deliberately not translated: these are symbols, not words.</summary>
+        int AddArrow(string text, ref int x, int y)
+        {
+            var l = new Label
+            {
+                Text = text, AutoSize = true, ForeColor = Color.DimGray,
+                Font = new Font("Segoe UI", 8.5f),
+                Location = new Point(x + 2, y + 4)
+            };
+            _alienGlyphs.Add(l);
+            using (var g = CreateGraphics())
+                x += (int)g.MeasureString(text, l.Font).Width + 6;
+            return x;
+        }
+
         static Image LoadEmbedded(string resourceName)
         {
             try
@@ -2183,7 +2500,7 @@ namespace MetalFatiguePatcher
             if (_cheatTurbo.Checked) features.Add(PatchData.CheatTurbo);
             if (_cheatCrews.Checked) features.Add(PatchData.CheatCrews);
 
-            var extras = PatchData.CheatFeatureSites(features, _scopeAll.Checked);
+            var extras = PatchData.CheatFeatureSites(features, _fbScopeAll.Checked, _tbScopeAll.Checked);
             extras.AddRange(PatchData.PartsUnlockSites(GatherUnlockAddrs(), _partsScopeAll.Checked));
             if (_expSpeed.Checked)
                 extras.AddRange(PatchData.MoveSpeedSites(SpeedFactor, _expSpeedAll.Checked));
@@ -2197,6 +2514,11 @@ namespace MetalFatiguePatcher
 
             if (MusicImport.FilesPresent(_pathBox.Text.Trim()))
                 extras.AddRange(PatchData.RimtechMusicSites());
+
+            // Alternative cheats: the payload lives in .rdata slack, so this is the one feature
+            // that also flips a section header byte. Everything else stays inside .text.
+            if (_alienOn.Checked)
+                extras.AddRange(PatchData.AlienSpawnSites());
 
             return extras;
         }
@@ -2262,6 +2584,14 @@ namespace MetalFatiguePatcher
             finally { _crewSyncing = false; }
         }
 
+        /// <summary>A scope only means something while its own cheat is ticked.</summary>
+        void UpdateCheatScopeState()
+        {
+            if (_fbScopeMe == null || _cheatBuild == null) return;
+            _fbScopeMe.Enabled = _fbScopeAll.Enabled = _cheatBuild.Checked;
+            _tbScopeMe.Enabled = _tbScopeAll.Enabled = _cheatTurbo.Checked;
+        }
+
         void UpdateSharedVisionState()
         {
             if (_sharedVision == null || _cheatFog == null) return;
@@ -2322,12 +2652,15 @@ namespace MetalFatiguePatcher
             _cheatTurbo.Checked      = inst.Turbo;
             _cheatCrews.Checked      = inst.Crews;
             _crewLimitOff.Checked    = inst.CrewLimitOff;
-            _scopeAll.Checked        = inst.CheatScopeAll;
-            _scopePlayer.Checked     = !inst.CheatScopeAll;
+            _fbScopeAll.Checked      = inst.FreeBuildScopeAll;
+            _fbScopeMe.Checked       = !inst.FreeBuildScopeAll;
+            _tbScopeAll.Checked      = inst.TurboScopeAll;
+            _tbScopeMe.Checked       = !inst.TurboScopeAll;
             _partsScopeAll.Checked   = inst.PartsScopeAll;
             _partsScopePlayer.Checked = !inst.PartsScopeAll;
 
             _expSpeed.Checked          = inst.MoveSpeed;
+            _alienOn.Checked           = inst.AlienSpawn;
             _expSpeedAll.Checked       = inst.MoveSpeedScopeAll;
             _expSpeedPlayer.Checked    = !inst.MoveSpeedScopeAll;
             SetSpeedFactor(inst.MoveSpeed ? inst.MoveSpeedFactor : 2.0);
